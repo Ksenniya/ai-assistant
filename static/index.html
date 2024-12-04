@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Two-Pane Q&A Interface with JSON Formatter</title>
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .console-pane, .editor-pane {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            background-color: #2d2d2d;
+            color: #ffffff;
+            overflow-y: auto; /* Allow vertical scrolling */
+            overflow-x: auto; /* Prevent horizontal scrolling */
+        }
+
+        .console-pane {
+            border-right: 2px solid #444;
+            font-size: 0.9rem; /* Increase font size */
+            line-height: 1.6; /* Adjust line height for readability */
+            word-break: break-all; /* Force wrap long words */
+            display: inline-block;
+        }
+
+        .editor-pane {
+            align-items: stretch;
+            justify-content: flex-start;
+        }
+
+        #editor-container {
+            flex: 1;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        #json-formatter {
+            margin-top: 10px;
+            background-color: #333;
+            color: #e6e6e6;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre; /* Preserve whitespace for JSON formatting */
+            display: none;
+        }
+
+        #submit-btn, #format-json-btn {
+            padding: 12px;
+            font-size: 1rem;
+            background-color: #5E9732; /* Ubuntu green */
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+            display: none;
+        }
+
+        #submit-btn:hover, #format-json-btn:hover {
+            background-color: #4b7a29;
+            display: none;
+        }
+
+        .message {
+            margin-bottom: 20px; /* Add space between messages */
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Console Pane: Displays chat conversation in a "Pascal-style" print format -->
+    <div class="console-pane" id="console">
+        <!-- Messages will appear here in Pascal-style print format -->
+    </div>
+
+    <!-- Editor Pane: CodeMirror text editor for user to type answers and format JSON -->
+    <div class="editor-pane">
+        <div id="editor-container">
+            <textarea id="editor"></textarea>
+        </div>
+        <button id="submit-btn">Submit Answer</button>
+        <button id="format-json-btn">Format JSON</button>
+        <div id="json-formatter">Formatted JSON will appear here...</div>
+    </div>
+</div>
+
+<!-- CodeMirror JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.js"></script>
+<script>
+    const consoleDiv = document.getElementById('console');
+    const jsonFormatterDiv = document.getElementById('json-formatter');
+    let currentQuestion = null;
+
+    // Initialize the editor on the right pane
+    const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+        lineNumbers: true,
+        mode: "javascript",
+        theme: "dracula",
+        lineWrapping: true,
+    });
+
+    // Adjust editor container height to occupy full screen
+    editor.setSize(null, "100%");
+
+    // Function to append messages to the console with formatting
+    function appendConsoleMessage(type, text) {
+        const message = document.createElement('pre');
+        message.classList.add('message'); // Apply margin to each message
+        if (type === 'question') {
+            const jsonObject = JSON.parse(text);
+            const formattedJson = JSON.stringify(jsonObject, null, 2);
+            message.textContent = `##chat asks\nprint "${formattedJson}"`;
+        } else {
+            message.textContent = `##you answer\nprint "${text}"`;
+        }
+        consoleDiv.appendChild(message);
+        consoleDiv.scrollTop = consoleDiv.scrollHeight; // Scroll to the bottom
+    }
+
+    // Poll function to simulate getting a new question from the server
+    function pollForQuestion() {
+        fetch('/get_question')
+            .then(response => response.ok ? response.json() : null)
+            .then(data => {
+                if (data && data.question) {
+                    currentQuestion = data.question;
+                    appendConsoleMessage('question', currentQuestion);
+                    editor.setValue(''); // Clear the editor on new question
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    setInterval(pollForQuestion, 2000); // Poll every 2 seconds
+
+    // Handle answer submission
+    const submitAnswer = (answer) => {
+        if (!currentQuestion) {
+            alert('No question to answer.');
+            return;
+        }
+        appendConsoleMessage('answer', answer);
+        fetch('/submit_answer', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({question: currentQuestion, answer: answer})
+        })
+            .then(response => {
+                // Check if response is okay, if not alert user.
+                if (!response.ok) {
+                    throw new Error('Failed to submit answer.');
+                }
+                return response.json();
+            })
+            .then(data => {
+                currentQuestion = null; // Reset current question after submission
+                editor.setValue(''); // Clear editor
+            })
+            .catch(error => alert(error.message)); // Display the error message
+    };
+
+    const askQuestion = (question) => {
+        return fetch('/ask_question', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({answer: question})
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to submit question.');
+                }
+                // First consume the response by calling response.json() and then clone it
+                return response.json().then(data => {
+                    editor.setValue(editor.getValue() + "\n\n\n" + data['message']);
+                    return {}; // Return the response from the server
+                });
+            })
+            .catch(error => {
+                alert(error.message);
+                throw error; // Re-throw error to be caught by caller
+            });
+    }
+
+    // Handle JSON formatting
+    document.getElementById('format-json-btn').addEventListener('click', () => {
+        const jsonText = editor.getValue();
+        try {
+            const jsonObject = JSON.parse(jsonText);
+            const formattedJson = JSON.stringify(jsonObject, null, 2); // Pretty-print JSON with indentation
+            jsonFormatterDiv.textContent = formattedJson; // Format JSON
+        } catch (error) {
+            jsonFormatterDiv.textContent = "Invalid JSON: " + error.message;
+        }
+    });
+    document.getElementById('submit-btn').addEventListener('click', () => {
+        const answer = editor.getValue().trim();
+        if (!answer) {
+            alert('Answer cannot be empty.');
+            return;
+        }
+        submitAnswer(answer);
+    });
+    // Handle keydown events for answer submission via keyboard
+    document.addEventListener('keydown', function (event) {
+        if (event.ctrlKey && event.altKey && event.key.toLowerCase() === 'q') {
+            // Get selected text
+            const selectedText = window.getSelection().toString().trim();
+            if (selectedText) {
+                // Prevent default browser behavior
+                event.preventDefault();
+                // Submit the selected text
+                askQuestion(selectedText).then(result => {
+                    // Create a new text node with the result
+                    console.log("result = " + result)
+                });
+            }
+        }
+    });
+
+
+    document.addEventListener('keydown', function (event) {
+        if (event.ctrlKey && event.altKey && event.key.toLowerCase() === 'a') {
+            // Get selected text
+            const selectedText = window.getSelection().toString().trim();
+            if (selectedText) {
+                // Prevent default browser behavior
+                event.preventDefault();
+                // Submit the selected text
+                console.log("result = " + selectedText)
+                submitAnswer(selectedText);
+            }
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.ctrlKey && event.altKey && event.key.toLowerCase() === 'l') {
+        const jsonText = window.getSelection().toString().trim();
+        try {
+            const jsonObject = JSON.parse(jsonText);
+            const formattedJson = JSON.stringify(jsonObject, null, 2); // Pretty-print JSON with indentation
+            jsonFormatterDiv.textContent = formattedJson; // Format JSON
+            editor.setValue(editor.getValue() + "\n\n\n" + formattedJson);
+        } catch (error) {
+            jsonFormatterDiv.textContent = "Invalid JSON: " + error.message;
+        }
+    }});
+
+    document.addEventListener('keydown', function (event) {
+        if (event.ctrlKey && event.altKey && event.key.toLowerCase() === 'c') {
+        const codeText = window.getSelection().toString().trim();
+        try {
+            const code = codeText.replace(/\\n/g, '\n');
+            editor.setValue(editor.getValue() + "\n\n\n" + code);
+        } catch (error) {
+            console.log(error)
+        }
+    }});
+
+
+</script>
+</body>
+</html>
