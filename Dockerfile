@@ -25,7 +25,9 @@ ENV GITHUB_USERNAME=${GITHUB_USERNAME}
 
 # Configure Git to use the Personal Access Token in a global .git-credentials file
 RUN git config --global credential.helper store && \
-    echo "https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com" > ~/.git-credentials
+    echo "https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com" > ~/.git-credentials && \
+    git config --global user.email "app-builder@example.com" && \
+    git config --global user.name "app-builder"
 
 # Expose the port the app runs on
 EXPOSE 5000
