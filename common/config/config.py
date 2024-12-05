@@ -1,6 +1,8 @@
+import base64
 import os
 import logging
 from dotenv import load_dotenv
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -10,8 +12,11 @@ load_dotenv()
 # Load cyoda environment variables
 CYODA_AI_URL = os.getenv("CYODA_AI_URL")
 API_URL = os.getenv("CYODA_API_URL") + "/api"
-API_KEY = os.getenv("CYODA_API_KEY")
-API_SECRET = os.getenv("CYODA_API_SECRET")
+decoded_bytes_cyoda_api_key = base64.b64decode(os.getenv("CYODA_API_KEY"))
+API_KEY = decoded_bytes_cyoda_api_key.decode("utf-8")
+decoded_bytes_cyoda_api_secret = base64.b64decode(os.getenv("CYODA_API_SECRET"))
+API_SECRET = decoded_bytes_cyoda_api_secret.decode("utf-8")
+
 ENTITY_VERSION = os.getenv("ENTITY_VERSION", "1000")
 GRPC_ADDRESS = os.environ["GRPC_ADDRESS"]
 GRPC_PROCESSOR_TAG=os.getenv("GRPC_PROCESSOR_TAG", "elt")
