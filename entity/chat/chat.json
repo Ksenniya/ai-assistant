@@ -1,0 +1,73 @@
+{
+  "user_id": "009896b2-0000-1000-8080-808080808080",
+  "chat_id": "",
+  "name": "random app",
+  "description": "random app description",
+  "date": "2020-10-10T10:10:00",
+  "last_modified": "2020-10-10T10:10:00",
+  "questions_queue": {
+    "new_questions": []
+  },
+  "chat_flow": {
+    "current_flow": [
+      {
+        "question": "None",
+        "prompt": {
+          "text": "Is this requirement sufficient?",
+          "schema": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": "Answer schema",
+            "type": "object",
+            "properties": {
+              "can_proceed": {
+                "type": "boolean",
+                "description": "Return true if this requirement is sufficient. Return false if you have more questions to ask"
+              },
+              "questions_to_answer": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Add questions about the requirement if you have any. Leave empty if the requirement is sufficient or if the human doesn't want to specify any more details."
+                }
+              }
+            },
+            "required": [
+              "can_proceed",
+              "questions_to_answer"
+            ]
+          }
+        }
+      }
+    ],
+    "finished_flow": [
+      {
+        "question": "None",
+        "prompt": {
+          "text": "Is this requirement sufficient?",
+          "schema": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": "Answer schema",
+            "type": "object",
+            "properties": {
+              "can_proceed": {
+                "type": "boolean",
+                "description": "Return true if this requirement is sufficient. Return false if you have more questions to ask"
+              },
+              "questions_to_answer": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "Add questions about the requirement if you have any. Leave empty if the requirement is sufficient or if the human doesn't want to specify any more details."
+                }
+              }
+            },
+            "required": [
+              "can_proceed",
+              "questions_to_answer"
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

@@ -122,7 +122,7 @@ ENTITIES_DESIGN = {
 
 
 # Finished
-stack = [{"question": "Finished",
+app_building_stack = [{"question": "Finished",
           "prompt": None,
           "answer": None,
           "function": None,

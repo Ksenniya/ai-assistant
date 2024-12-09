@@ -6,14 +6,14 @@ import subprocess
 
 from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO
 from common.util.utils import read_file
-from entity.app_builder_job.data.mock_data_generator import generate_mock_data
-from logic.init import ai_service, chat_id
+from entity.chat.data.mock_data_generator import generate_mock_data
+from logic.init import ai_service
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-if (MOCK_AI=="true"):
+if MOCK_AI== "true":
     generate_mock_data()
     current_dir = os.path.dirname(os.path.abspath(__file__))
     current_dir = os.path.dirname(current_dir)
@@ -79,10 +79,11 @@ def _mock_ai(prompt_text):
     return json_mock_data.get(prompt_text[:15], json.dumps({"entity": "some random text"}))
 
 
-def _get_event_template(question: str, prompt: str, max_iteration: int = 0):
+def _get_event_template(question: str, prompt: str, notification: str, max_iteration: int = 0):
     return {
         "question": question,  # Sets the provided question
         "prompt": prompt,  # Sets the provided prompt
+        "notification": notification,
         "answer": "",  # Initially no answer
         "function": None,  # Placeholder for function
         "index": 0,  # Default index
@@ -91,9 +92,9 @@ def _get_event_template(question: str, prompt: str, max_iteration: int = 0):
     }
 
 
-def _save_code_to_file(entity_name, data, item):
+def _save_code_to_file(chat_id, entity_name, data, item):
     target_dir = os.path.join('entity', entity_name, item)
-    return _save_file(data=data, target_dir=target_dir, item=f'{item}.py')
+    return _save_file(chat_id=chat_id, data=data, target_dir=target_dir, item=f'{item}.py')
 
 
 def _save_json_entity_to_file(_event, sub_dir: str, file_name: str, token, ai_endpoint, chat_id) -> str:
@@ -113,11 +114,11 @@ def _save_json_entity_to_file(_event, sub_dir: str, file_name: str, token, ai_en
             raise ValueError("The provided entity is a string but is not valid JSON.")
 
     target_dir = os.path.join('entity', entity_name, sub_dir)
-    _save_file(json.dumps(data), target_dir, file_name)
+    _save_file(chat_id=chat_id, data=json.dumps(data), target_dir=target_dir, item=file_name)
     return data
 
 
-def _save_file(data, target_dir, item) -> str:
+def _save_file(chat_id, data, target_dir, item) -> str:
     """
     Save the workflow to a file inside a specific directory.
     """

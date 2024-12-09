@@ -5,7 +5,7 @@ import string
 from typing import Any, Dict
 
 from common.config.config import NUM_MOCK_ARR_ITEMS
-from entity.app_builder_job.data.data import entity_stack, stack, workflow_stack, scheduler_stack, \
+from entity.chat.data.data import entity_stack, app_building_stack as stack, workflow_stack, scheduler_stack, \
     form_submission_stack, file_upload_stack, api_request_stack, external_datasource_stack
 
 

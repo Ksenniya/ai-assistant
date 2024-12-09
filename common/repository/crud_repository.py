@@ -24,6 +24,13 @@ class CrudRepository(Repository):
         pass
 
     @abstractmethod
+    def delete_by_id(self, meta, id: Any) -> None:
+        """
+        Deletes a given entity.
+        """
+        pass
+
+    @abstractmethod
     def delete(self, meta, entity: Any) -> None:
         """
         Deletes a given entity.
