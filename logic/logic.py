@@ -5,6 +5,7 @@ from common.config.config import CYODA_AI_API, ENTITY_VERSION
 from entity.workflow import dispatch_function
 from entity.chat.workflow.helper_functions import _get_event_template, _chat
 from logic.init import cyoda_token, entity_service
+from logic.notifier import clients_queue
 
 QUESTION_OR_VALIDATE = "Please answer the question or validate"
 
@@ -40,7 +41,7 @@ def process_answer(_event: Dict[str, Any], chat) -> None:
         stack.append({NOTIFICATION: "Finishing iteration with result: "})
 
 
-def process_dialogue_script(token, technical_id) -> None:
+async def process_dialogue_script(token, technical_id) -> None:
     chat = entity_service.get_item(token=token,
                                    entity_model="chat",
                                    entity_version=ENTITY_VERSION,
@@ -56,11 +57,14 @@ def process_dialogue_script(token, technical_id) -> None:
             process_answer(event, chat)
         elif event.get(NOTIFICATION):
             chat["questions_queue"]["new_questions"].put(event)
+            await clients_queue.put(technical_id)
 
     while (stack and (stack[-1].get(QUESTION) or stack[-1].get(NOTIFICATION))):
         event = stack.pop()
         finished_stack.append(event)
         chat["questions_queue"]["new_questions"].put(event)
+        await clients_queue.put(technical_id)
+
     entity_service.update_item(token=token,
                             entity_model="chat",
                             entity_version=ENTITY_VERSION,

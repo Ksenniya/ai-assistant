@@ -375,7 +375,7 @@ entity_stack = lambda entity: [{"question": None,
                                 "max_iteration": 0},
                                # Would you like to specify the entity
                                {
-                                   "question": f"Let's generate the entity schema. Would you like to specify the entity for entity: {entity}",
+                                   "question": f"Let's generate the entity schema. Would you like to specify the data for entity: {entity}",
                                    "prompt": None,
                                    "answer": None,
                                    "function": None,

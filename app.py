@@ -1,26 +1,108 @@
+import asyncio
+import copy
+import functools
 import queue
-import threading
 
 import jwt
 
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
+from quart import Quart, request, jsonify, send_from_directory, websocket
 
-from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX
+from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX, API_URL
 from common.exception.exceptions import ChatNotFoundException, UnauthorizedAccessException
-from common.util.utils import _clean_formatting, generate_uuid
+from common.util.utils import clean_formatting, generate_uuid, send_get_request
 from entity.chat.data.data import app_building_stack
 from logic.logic import process_dialogue_script
 from logic.init import ai_service, cyoda_token, entity_service
+from logic.notifier import clients_queue
 
-app = Flask(__name__, static_folder='static')
+app = Quart(__name__, static_folder='static', static_url_path='')
+#app = cors(app, allow_origin="*")
 
-CORS(app)  # Enable CORS for all routes
+@app.errorhandler(UnauthorizedAccessException)
+async def handle_unauthorized_exception(error):
+    return jsonify({"error": str(error)}), 401
+
+@app.errorhandler(ChatNotFoundException)
+async def handle_chat_not_found_exception(error):
+    return jsonify({"error": str(error)}), 404
+
+@app.errorhandler(Exception)
+async def handle_any_exception(error):
+    return jsonify({"error": str(error)}), 500
 
 
-@app.route(API_PREFIX + '/')
-def index():
-    return send_from_directory(app.static_folder, 'index.html')
+# Decorator to enforce authorization
+def auth_required(func):
+    @functools.wraps(func)  # This ensures the original function's name and metadata are preserved
+    async def wrapper(*args, **kwargs):
+        # Check for Authorization header
+        auth_header = websocket.headers.get('Authorization') if websocket else request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({"error": "Missing Authorization header"}), 401
+
+        token = auth_header.split(" ")[1]
+
+        # Call external service to validate the token
+        response = send_get_request(token, API_URL, "/api/v1")
+
+        if response.status_code == 401:
+            raise UnauthorizedAccessException("Invalid token")
+
+        # If the token is valid, proceed to the requested route
+        return await func(*args, **kwargs)
+
+    return wrapper
+
+@app.websocket(API_PREFIX + '/ws')
+@auth_required
+async def ws():
+    try:
+        while True:
+            # If you need to keep the connection alive
+            # or just block until client disconnects.
+            # If client disconnects, a WebsocketDisconnect will be raised.
+            event = await clients_queue.get()
+            await websocket.send(event)
+    except asyncio.CancelledError:
+        # Handle the cancellation gracefully
+        # You can log the cancellation or perform any other necessary actions
+        pass
+
+
+# @app.websocket('/ws')
+# async def ws():
+#     # Receive technical_id from the client when the connection is established
+#     technical_id = await websocket.receive()
+#
+#     # Map the technical_id to the websocket connection
+#     clients_map[technical_id] = websocket
+#
+#     try:
+#         while True:
+#             # Wait for an event from the queue
+#             event = await clients_queue.get()
+#
+#             # Directly check if there's a client corresponding to the event's id
+#             if event['id'] in clients_map:
+#                 # Send the event to the client
+#                 await clients_map[event['id']].send(event['data'])
+#             else:
+#                 # If the client is not found (e.g., disconnected), you can log or ignore
+#                 pass
+#
+#     except asyncio.CancelledError:
+#         # Handle client disconnection (can clean up if necessary)
+#         pass
+#     finally:
+#         # Clean up when the WebSocket connection is closed
+#         if technical_id in clients_map:
+#             del clients_map[technical_id]
+
+
+@app.route('/')
+async def index():
+    # Ensure that 'index.html' is located in the 'static' folder
+    return await send_from_directory(app.static_folder, 'index.html')
 
 
 def _get_user_id(auth_header):
@@ -79,20 +161,20 @@ def _submit_answer_helper(technical_id, answer, auth_header, chat):
     if not stack:
         return jsonify({"message": "Finished"}), 200
     next_event = stack[-1]
-    next_event["answer"] = _clean_formatting(answer)
+    next_event["answer"] = clean_formatting(answer)
     entity_service.update_item(token=auth_header,
                                entity_model="chat",
                                entity_version=ENTITY_VERSION,
                                technical_id=technical_id,
                                entity=chat,
                                meta={})
-    thread = threading.Thread(target=process_dialogue_script, args=(auth_header, technical_id))
-    thread.start()
+    asyncio.create_task(process_dialogue_script(auth_header, technical_id))
     return jsonify({"message": "Answer received"}), 200
 
 
 @app.route(API_PREFIX + '/chats', methods=['GET'])
-def get_chats():
+@auth_required
+async def get_chats():
     auth_header = request.headers.get('Authorization')
     user_id = _get_user_id(auth_header)
     if not user_id:
@@ -114,15 +196,10 @@ def get_chats():
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>', methods=['GET'])
-def get_chat(technical_id):
-    try:
-        auth_header = request.headers.get('Authorization')
-        chat = _get_chat_for_user(auth_header, technical_id)
-    except UnauthorizedAccessException as e:
-        return jsonify({"error": str(e)}), 401
-    except ChatNotFoundException as e:
-        return jsonify({"error": str(e)}), 404
-
+@auth_required
+async def get_chat(technical_id):
+    auth_header = request.headers.get('Authorization')
+    chat = _get_chat_for_user(auth_header, technical_id)
     dialogue = []
     for item in chat["chat_flow"]["finished_flow"]:
         if item.get("question"):
@@ -144,15 +221,10 @@ def get_chat(technical_id):
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>', methods=['DELETE'])
-def delete_chat(technical_id):
-    try:
-        auth_header = request.headers.get('Authorization')
-        chat = _get_chat_for_user(auth_header, technical_id)
-    except UnauthorizedAccessException as e:
-        return jsonify({"error": str(e)}), 401
-    except ChatNotFoundException as e:
-        return jsonify({"error": str(e)}), 404
-
+@auth_required
+async def delete_chat(technical_id):
+    auth_header = request.headers.get('Authorization')
+    _get_chat_for_user(auth_header, technical_id)
     entity_service.delete_item(token=auth_header,
                                entity_model="chat",
                                entity_version=ENTITY_VERSION,
@@ -163,44 +235,43 @@ def delete_chat(technical_id):
 
 
 @app.route(API_PREFIX + '/chats', methods=['POST'])
-def add_chat():
+@auth_required
+async def add_chat():
     auth_header = request.headers.get('Authorization')
     user_id = _get_user_id(auth_header)
     if not user_id:
         return jsonify({"error": "Invalid token"}), 401
-    req_data = request.get_json()
+    req_data = await request.get_json()
     name = req_data.get('name')
     description = req_data.get('description')
     if not name:
         return jsonify({"message": "Invalid chat name"}), 400
     # Here, handle the answer (e.g., store it, process it, etc.)
-    chat = {"user_id": user_id,
-            "chat_id": generate_uuid(),
-            "date": "2023-11-07T12:00:00Z",
-            "last_modified": "2023-11-07T12:00:00Z",
-            "questions_queue": {"new_questions": queue.Queue(), "asked_questions": queue.Queue()},
-            "chat_flow": {"current_flow": app_building_stack, "finished_flow": []},
-            "name": name,
-            "description": description}
+
+    chat = {
+        "user_id": user_id,
+        "chat_id": generate_uuid(),
+        "date": "2023-11-07T12:00:00Z",
+        "last_modified": "2023-11-07T12:00:00Z",
+        "questions_queue": {"new_questions": queue.Queue(), "asked_questions": queue.Queue()},
+        "chat_flow": {"current_flow": copy.deepcopy(app_building_stack), "finished_flow": []},
+        "name": name,
+        "description": description
+    }
     technical_id = entity_service.add_item(token=auth_header,
                             entity_model="chat",
                             entity_version=ENTITY_VERSION,
                             entity=chat)
-    process_dialogue_script(auth_header, technical_id)
+    await process_dialogue_script(auth_header, technical_id)
     return jsonify({"message": "Chat created", "technical_id": technical_id}), 200
 
 
 # polling for new questions here
 @app.route(API_PREFIX + '/chats/<technical_id>/questions', methods=['GET'])
-def get_question(technical_id):
-    try:
-        auth_header = request.headers.get('Authorization')
-        chat = _get_chat_for_user(auth_header, technical_id)
-    except UnauthorizedAccessException as e:
-        return jsonify({"error": str(e)}), 401
-    except ChatNotFoundException as e:
-        return jsonify({"error": str(e)}), 404
-
+@auth_required
+async def get_question(technical_id):
+    auth_header = request.headers.get('Authorization')
+    chat = _get_chat_for_user(auth_header, technical_id)
     question_queue = chat["questions_queue"]["new_questions"]
     try:
         questions_to_user = []
@@ -218,66 +289,52 @@ def get_question(technical_id):
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/text-questions', methods=['POST'])
-def submit_question_text(technical_id):
-    try:
-        auth_header = request.headers.get('Authorization')
-        chat = _get_chat_for_user(auth_header, technical_id)
-    except UnauthorizedAccessException as e:
-        return jsonify({"error": str(e)}), 401
-    except ChatNotFoundException as e:
-        return jsonify({"error": str(e)}), 404
+@auth_required
+async def submit_question_text(technical_id):
+    auth_header = request.headers.get('Authorization')
+    chat = _get_chat_for_user(auth_header, technical_id)
 
-    req_data = request.get_json()
+    req_data = await request.get_json()
     question = req_data.get('question')
     return _submit_question_helper(chat, question)
 
 @app.route(API_PREFIX + '/chats/<technical_id>/questions', methods=['POST'])
-def submit_question(technical_id):
-    try:
-        auth_header = request.headers.get('Authorization')
-        chat = _get_chat_for_user(auth_header, technical_id)
-    except UnauthorizedAccessException as e:
-        return jsonify({"error": str(e)}), 401
-    except ChatNotFoundException as e:
-        return jsonify({"error": str(e)}), 404
+@auth_required
+async def submit_question(technical_id):
+    auth_header = request.headers.get('Authorization')
+    chat = _get_chat_for_user(auth_header, technical_id)
 
-    req_data = request.form.to_dict()
+    req_data = await request.form
+    req_data = req_data.to_dict()
     question = req_data.get('question')
-    file = request.files.get('file')
+    files = await request.files
+    files = files.get('file')
 
     return _submit_question_helper(chat, question)
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/text-answers', methods=['POST'])
-def submit_answer_text(technical_id):
-    try:
-        auth_header = request.headers.get('Authorization')
-        chat = _get_chat_for_user(auth_header, technical_id)
-    except UnauthorizedAccessException as e:
-        return jsonify({"error": str(e)}), 401
-    except ChatNotFoundException as e:
-        return jsonify({"error": str(e)}), 404
-
-    req_data = request.get_json()
+@auth_required
+async def submit_answer_text(technical_id):
+    auth_header = request.headers.get('Authorization')
+    chat = _get_chat_for_user(auth_header, technical_id)
+    req_data = await request.get_json()
     answer = req_data.get('answer')
     return _submit_answer_helper(technical_id, answer, auth_header, chat)
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/answers', methods=['POST'])
-def submit_answer(technical_id):
-    try:
-        auth_header = request.headers.get('Authorization')
-        chat = _get_chat_for_user(auth_header, technical_id)
-    except UnauthorizedAccessException as e:
-        return jsonify({"error": str(e)}), 401
-    except ChatNotFoundException as e:
-        return jsonify({"error": str(e)}), 404
-
-    req_data = request.form.to_dict()
+@auth_required
+async def submit_answer(technical_id):
+    auth_header = request.headers.get('Authorization')
+    chat = _get_chat_for_user(auth_header, technical_id)
+    req_data = await request.form
+    req_data = req_data.to_dict()
     answer = req_data.get('answer')
 
     # Check if a file has been uploaded
-    file = request.files.get('file')
+    file = await request.files
+    file = file.get('file')
     return _submit_answer_helper(technical_id, answer, auth_header, chat)
 
 

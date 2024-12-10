@@ -196,7 +196,7 @@ def now():
 def timestamp_before(seconds: int) -> int:
     return int((time.time() - seconds) * 1000.0)
 
-def _clean_formatting(text):
+def clean_formatting(text):
     """
     This function simulates the behavior of text pasted into Google search:
     - Removes leading and trailing whitespace.
