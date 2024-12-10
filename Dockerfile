@@ -33,4 +33,4 @@ RUN git config --global credential.helper store && \
 EXPOSE 5000
 
 # Run Django's development server
-CMD [ "python", "-m" , "flask", "run", "--host=0.0.0.0"]
+CMD ["hypercorn", "app:app", "--bind", "0.0.0.0:5000"]
