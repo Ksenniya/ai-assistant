@@ -6,7 +6,7 @@ import queue
 import jwt
 
 from quart import Quart, request, jsonify, send_from_directory, websocket
-
+from quart_cors import cors
 from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX, API_URL
 from common.exception.exceptions import ChatNotFoundException, UnauthorizedAccessException
 from common.util.utils import clean_formatting, generate_uuid, send_get_request
@@ -16,7 +16,18 @@ from logic.init import ai_service, cyoda_token, entity_service
 from logic.notifier import clients_queue
 
 app = Quart(__name__, static_folder='static', static_url_path='')
-#app = cors(app, allow_origin="*")
+app = cors(app, allow_origin="*")
+
+@app.before_serving
+async def add_cors_headers():
+    @app.after_request
+    async def apply_cors(response):
+        # Set CORS headers for all HTTP requests
+        response.headers['Access-Control-Allow-Origin'] = '*'  # Allow all origins
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'  # Allow these methods
+        response.headers['Access-Control-Allow-Headers'] = '*'  # Allow these headers
+        response.headers['Access-Control-Allow-Credentials'] = 'true'  # Allow credentials
+        return response
 
 @app.before_serving
 async def add_cors_headers():
@@ -64,20 +75,20 @@ def auth_required(func):
 
     return wrapper
 
-@app.websocket(API_PREFIX + '/ws')
-@auth_required
-async def ws():
-    try:
-        while True:
-            # If you need to keep the connection alive
-            # or just block until client disconnects.
-            # If client disconnects, a WebsocketDisconnect will be raised.
-            event = await clients_queue.get()
-            await websocket.send(event)
-    except asyncio.CancelledError:
-        # Handle the cancellation gracefully
-        # You can log the cancellation or perform any other necessary actions
-        pass
+# @app.websocket(API_PREFIX + '/ws')
+# @auth_required
+# async def ws():
+#     try:
+#         while True:
+#             # If you need to keep the connection alive
+#             # or just block until client disconnects.
+#             # If client disconnects, a WebsocketDisconnect will be raised.
+#             event = await clients_queue.get()
+#             await websocket.send(event)
+#     except asyncio.CancelledError:
+#         # Handle the cancellation gracefully
+#         # You can log the cancellation or perform any other necessary actions
+#         pass
 
 
 # @app.websocket('/ws')
