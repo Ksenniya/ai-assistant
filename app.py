@@ -16,18 +16,18 @@ from logic.init import ai_service, cyoda_token, entity_service
 from logic.notifier import clients_queue
 
 app = Quart(__name__, static_folder='static', static_url_path='')
-app = cors(app, allow_origin="*")
+#app = cors(app, allow_origin="*")
 
-# @app.before_serving
-# async def add_cors_headers():
-#     @app.after_request
-#     async def apply_cors(response):
-#         # Set CORS headers for all HTTP requests
-#         response.headers['Access-Control-Allow-Origin'] = '*'  # Allow all origins
-#         response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'  # Allow these methods
-#         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'  # Allow these headers
-#         response.headers['Access-Control-Allow-Credentials'] = 'true'  # Allow credentials
-#         return response
+@app.before_serving
+async def add_cors_headers():
+    @app.after_request
+    async def apply_cors(response):
+        # Set CORS headers for all HTTP requests
+        response.headers['Access-Control-Allow-Origin'] = '*'  # Allow all origins
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'  # Allow these methods
+        response.headers['Access-Control-Allow-Headers'] = '*'  # Allow these headers
+        response.headers['Access-Control-Allow-Credentials'] = 'true'  # Allow credentials
+        return response
 
 @app.errorhandler(UnauthorizedAccessException)
 async def handle_unauthorized_exception(error):
