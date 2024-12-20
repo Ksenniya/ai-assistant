@@ -33,7 +33,6 @@ async def add_cors_headers():
         response.headers['Access-Control-Allow-Credentials'] = 'true'  # Allow credentials
         return response
 
-
 @app.before_serving
 async def add_cors_headers():
     @app.after_request
