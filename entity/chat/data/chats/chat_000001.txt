@@ -1,0 +1,818 @@
+##chat
+"Hello! What application would you like to build? Could you, please, share your ideas?"
+##you
+"hello! i want an app that ingests data from gov.com and provides analytics"
+##chat
+"{
+  "can_proceed": false,
+  "questions_to_answer": [
+    "What specific data from govcom do you want to ingest?",
+    "What kind of analytics are you looking for?",
+    "Are there any specific metrics or reports you need?",
+    "Do you have a preferred technology stack for the application?",
+    "What is the expected volume of data to be ingested?",
+    "Are there any specific user roles or permissions needed for the app?"
+  ]
+}"
+##chat
+"Please answer the question or validate"
+##you
+"just load raw data into the system and then produce api endpoints so that i can execute sql queries against the database"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": false,
+  "questions_to_answer": [
+    "What format will the raw data be in?",
+    "What specific data source will the raw data be loaded from?",
+    "What kind of SQL queries do you want to execute against the database?",
+    "Are there any specific performance or scalability requirements for the API endpoints?",
+    "Do you have any specific security requirements for accessing the API endpoints?",
+    "What is the expected volume of data to be loaded into the system?"
+  ]
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "entities": [
+    {
+      "depends_on_entity": "None",
+      "entity_name": "load_raw_data_job",
+      "entity_source": "SCHEDULED",
+      "entity_type": "JOB",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "load_raw_data_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Scheduled trigger for loading raw data",
+              "name": "trigger_load_raw_data"
+            },
+            "description": "Start the process of loading raw data into the system",
+            "end_state": "raw_data_loaded",
+            "end_state_description": "Raw data has been successfully loaded into the system",
+            "name": "start_loading_raw_data",
+            "process": {
+              "adds_new_entites": "raw_data_entity",
+              "description": "Process to load raw data into the system",
+              "name": "load_raw_data"
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before loading raw data"
+          }
+        ]
+      }
+    },
+    {
+      "depends_on_entity": "load_raw_data_job",
+      "entity_name": "raw_data_entity",
+      "entity_source": "ENTITY_EVENT",
+      "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "create_api_endpoints_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Trigger to generate API endpoints after data load",
+              "name": "trigger_generate_api"
+            },
+            "description": "Generate API endpoints for executing SQL queries",
+            "end_state": "api_endpoints_generated",
+            "end_state_description": "API endpoints have been successfully generated",
+            "name": "generate_api_endpoints",
+            "process": {
+              "adds_new_entites": "api_endpoint_entity",
+              "description": "Process to create API endpoints for SQL query execution",
+              "name": "create_api_endpoints"
+            },
+            "start_state": "raw_data_loaded",
+            "start_state_description": "State after raw data has been loaded"
+          }
+        ]
+      }
+    },
+    {
+      "depends_on_entity": "raw_data_entity",
+      "entity_name": "api_endpoint_entity",
+      "entity_source": "DEFAULT",
+      "entity_type": "BUSINESS_ENTITY",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "api_query_execution_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Trigger for executing SQL queries via API",
+              "name": "trigger_query_execution"
+            },
+            "description": "Execute SQL query against the loaded data",
+            "end_state": "query_executed",
+            "end_state_description": "SQL query executed successfully",
+            "name": "execute_sql_query",
+            "process": {
+              "adds_new_entites": "None",
+              "description": "Process to handle SQL query execution via API endpoint",
+              "name": "execute_sql_query_process"
+            },
+            "start_state": "api_endpoints_generated",
+            "start_state_description": "State after API endpoints are generated"
+          }
+        ]
+      }
+    }
+  ]
+}"
+##chat
+"Would you like to change anything in the design?"
+##you
+"load_raw_data_job should be triggered by api reequest, no need for api_endpoint_entity - let's add api layer outside the entities scope, what we can introduce though is a report entity"
+##chat
+"{
+  "can_proceed": false,
+  "entities": [
+    {
+      "depends_on_entity": "None",
+      "entity_name": "load_raw_data_job",
+      "entity_source": "API_REQUEST",
+      "entity_type": "JOB",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "load_raw_data_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Triggered by API request to load raw data",
+              "name": "trigger_load_raw_data"
+            },
+            "description": "Start the process of loading raw data into the system",
+            "end_state": "raw_data_loaded",
+            "end_state_description": "Raw data has been successfully loaded into the system",
+            "name": "start_loading_raw_data",
+            "process": {
+              "adds_new_entites": "raw_data_entity",
+              "description": "Process to load raw data into the system",
+              "name": "load_raw_data"
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before loading raw data"
+          }
+        ]
+      }
+    },
+    {
+      "depends_on_entity": "load_raw_data_job",
+      "entity_name": "raw_data_entity",
+      "entity_source": "ENTITY_EVENT",
+      "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "generate_report_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Triggered after raw data loading completes",
+              "name": "trigger_generate_report"
+            },
+            "description": "Generate a report based on the loaded raw data",
+            "end_state": "report_generated",
+            "end_state_description": "Report has been successfully generated",
+            "name": "generate_report",
+            "process": {
+              "adds_new_entites": "report_entity",
+              "description": "Process to generate report from raw data",
+              "name": "generate_report_process"
+            },
+            "start_state": "raw_data_loaded",
+            "start_state_description": "State after raw data has been loaded"
+          }
+        ]
+      }
+    },
+    {
+      "depends_on_entity": "raw_data_entity",
+      "entity_name": "report_entity",
+      "entity_source": "DEFAULT",
+      "entity_type": "SECONDARY_DATA",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "report_analysis_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Triggered after report generation",
+              "name": "trigger_report_analysis"
+            },
+            "description": "Analyze generated report",
+            "end_state": "report_analyzed",
+            "end_state_description": "Report has been successfully analyzed",
+            "name": "analyze_report",
+            "process": {
+              "adds_new_entites": "None",
+              "description": "Process to analyze the generated report",
+              "name": "analyze_report_process"
+            },
+            "start_state": "report_generated",
+            "start_state_description": "State after the report has been generated"
+          }
+        ]
+      }
+    }
+  ]
+}"
+##chat
+"Please answer the question or validate"
+##you
+"This is the final variant:
+{
+  "can_proceed": false,
+  "entities": [
+    {
+      "depends_on_entity": "None",
+      "entity_name": "load_raw_data_job",
+      "entity_source": "API_REQUEST",
+      "entity_type": "JOB",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "load_raw_data_workflow",
+        "transitions": [
+          {
+            "description": "Start the process of loading raw data into the system",
+            "end_state": "raw_data_loaded",
+            "end_state_description": "Raw data has been successfully loaded into the system",
+            "name": "start_loading_raw_data",
+            "process": {
+              "adds_new_entites": "raw_data_entity",
+              "description": "Process to load raw data into the system",
+              "name": "load_raw_data"
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before loading raw data"
+          }
+        ]
+      }
+    },
+    {
+      "depends_on_entity": "load_raw_data_job",
+      "entity_name": "raw_data_entity",
+      "entity_source": "ENTITY_EVENT",
+      "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA"
+    },
+    {
+      "entity_name": "report_entity",
+      "entity_source": "API_REQUEST",
+      "entity_type": "SECONDARY_DATA",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "report_analysis_workflow",
+        "transitions": [
+          {
+            "description": "Analyze generated report",
+            "end_state": "report_analyzed",
+            "end_state_description": "Report has been successfully analyzed",
+            "name": "analyze_report",
+            "process": {
+              "adds_new_entites": "None",
+              "description": "Process to analyze the generated report",
+              "name": "analyze_report_process"
+            },
+            "start_state": "report_generated",
+            "start_state_description": "State after the report has been generated"
+          }
+        ]
+      }
+    }
+  ]
+}"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": false,
+  "entities": [
+    {
+      "depends_on_entity": "None",
+      "entity_name": "load_raw_data_job",
+      "entity_source": "API_REQUEST",
+      "entity_type": "JOB",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "load_raw_data_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Triggered by API request to load raw data",
+              "name": "trigger_load_raw_data"
+            },
+            "description": "Start the process of loading raw data into the system",
+            "end_state": "raw_data_loaded",
+            "end_state_description": "Raw data has been successfully loaded into the system",
+            "name": "start_loading_raw_data",
+            "process": {
+              "adds_new_entites": "raw_data_entity",
+              "description": "Process to load raw data into the system",
+              "name": "load_raw_data"
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before loading raw data"
+          }
+        ]
+      }
+    },
+    {
+      "depends_on_entity": "load_raw_data_job",
+      "entity_name": "raw_data_entity",
+      "entity_source": "ENTITY_EVENT",
+      "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "generate_report_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Triggered after raw data loading completes",
+              "name": "trigger_generate_report"
+            },
+            "description": "Generate a report based on the loaded raw data",
+            "end_state": "report_generated",
+            "end_state_description": "Report has been successfully generated",
+            "name": "generate_report",
+            "process": {
+              "adds_new_entites": "report_entity",
+              "description": "Process to generate report from raw data",
+              "name": "generate_report_process"
+            },
+            "start_state": "raw_data_loaded",
+            "start_state_description": "State after raw data has been loaded"
+          }
+        ]
+      }
+    },
+    {
+      "depends_on_entity": "raw_data_entity",
+      "entity_name": "report_entity",
+      "entity_source": "API_REQUEST",
+      "entity_type": "SECONDARY_DATA",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "report_analysis_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Triggered after report generation",
+              "name": "trigger_report_analysis"
+            },
+            "description": "Analyze generated report",
+            "end_state": "report_analyzed",
+            "end_state_description": "Report has been successfully analyzed",
+            "name": "analyze_report",
+            "process": {
+              "adds_new_entites": "None",
+              "description": "Process to analyze the generated report",
+              "name": "analyze_report_process"
+            },
+            "start_state": "report_generated",
+            "start_state_description": "State after the report has been generated"
+          }
+        ]
+      }
+    }
+  ]
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Let's generate the entity schema. Would you like to specify the data for entity: {'entity_name':
+'load_raw_data_job', 'entity_type': 'JOB', 'entity_source': 'API_REQUEST', 'depends_on_entity':
+'None', 'entity_workflow': {'name': 'load_raw_data_workflow', 'class_name':
+'com.cyoda.tdb.model.treenode.TreeNodeEntity', 'transitions': [{'name': 'start_loading_raw_data',
+'description': 'Start the process of loading raw data into the system', 'start_state': 'None',
+'start_state_description': 'Initial state before loading raw data', 'end_state': 'raw_data_loaded',
+'end_state_description': 'Raw data has been successfully loaded into the system', 'criteria':
+{'name': 'trigger_load_raw_data', 'description': 'Triggered by API request to load raw data'},
+'process': {'name': 'load_raw_data', 'description': 'Process to load raw data into the system',
+'adds_new_entites': 'raw_data_entity'}}]}}"
+##you
+"what would you suggest?"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "entity": {
+    "created_at": "2023-10-07T14:30:00Z",
+    "depends_on_entity": "None",
+    "entity_name": "load_raw_data_job",
+    "entity_source": "API_REQUEST",
+    "entity_type": "JOB",
+    "status": "active",
+    "updated_at": "2023-10-07T14:30:00Z",
+    "workflow": {
+      "name": "load_raw_data_workflow",
+      "transitions": [
+        {
+          "criteria": {
+            "description": "Triggered by API request to load raw data",
+            "name": "trigger_load_raw_data"
+          },
+          "description": "Starts the process of loading raw data into the system",
+          "end_state": "raw_data_loaded",
+          "name": "start_loading_raw_data",
+          "process": {
+            "adds_new_entities": "raw_data_entity",
+            "description": "Process to load raw data into the system",
+            "name": "load_raw_data"
+          },
+          "start_state": "None"
+        }
+      ]
+    }
+  }
+}"
+##chat
+"Would you like to edit the model?"
+##you
+"this is not job entity data - job entity data should have some job information - when launched , data ingestion status - etc"
+##chat
+"{
+  "can_proceed": false,
+  "entity": {
+    "created_at": "2023-10-07T14:30:00Z",
+    "data_ingestion_status": "pending",
+    "depends_on_entity": "None",
+    "entity_name": "load_raw_data_job",
+    "entity_source": "API_REQUEST",
+    "entity_type": "JOB",
+    "failed_records": 0,
+    "last_run_time": "2023-10-07T14:30:00Z",
+    "launch_time": "2023-10-07T14:30:00Z",
+    "status": "active",
+    "success_records": 0,
+    "total_records": 0,
+    "updated_at": "2023-10-07T14:30:00Z",
+    "workflow": {
+      "name": "load_raw_data_workflow",
+      "transitions": [
+        {
+          "criteria": {
+            "description": "Triggered by API request to load raw data",
+            "name": "trigger_load_raw_data"
+          },
+          "description": "Starts the process of loading raw data into the system",
+          "end_state": "raw_data_loaded",
+          "name": "start_loading_raw_data",
+          "process": {
+            "adds_new_entities": "raw_data_entity",
+            "description": "Process to load raw data into the system",
+            "name": "load_raw_data"
+          },
+          "start_state": "None"
+        }
+      ]
+    }
+  }
+}"
+##chat
+"Please answer the question or validate"
+##you
+"generate some sample data like job entity data should have some job information - when launched , data ingestion status - etc""
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": false,
+  "entity": {
+    "created_at": "2023-10-07T14:30:00Z",
+    "data_ingestion_status": "in_progress",
+    "depends_on_entity": "None",
+    "entity_name": "load_raw_data_job",
+    "entity_source": "API_REQUEST",
+    "entity_type": "JOB",
+    "error_details": [
+      {
+        "error_message": "Invalid data format",
+        "record_id": 12
+      },
+      {
+        "error_message": "Missing required field",
+        "record_id": 34
+      }
+    ],
+    "failed_records": 50,
+    "last_run_time": "2023-10-07T14:30:00Z",
+    "launch_time": "2023-10-07T14:30:00Z",
+    "status": "active",
+    "success_records": 1450,
+    "total_records": 1500,
+    "updated_at": "2023-10-07T14:30:00Z",
+    "workflow": {
+      "name": "load_raw_data_workflow",
+      "transitions": [
+        {
+          "criteria": {
+            "description": "Triggered by API request to load raw data",
+            "name": "trigger_load_raw_data"
+          },
+          "description": "Starts the process of loading raw data into the system",
+          "end_state": "raw_data_loaded",
+          "name": "start_loading_raw_data",
+          "process": {
+            "adds_new_entities": "raw_data_entity",
+            "description": "Process to load raw data into the system",
+            "name": "load_raw_data"
+          },
+          "start_state": "None"
+        }
+      ]
+    }
+  }
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Let's generate the entity schema. Would you like to specify the data for entity: {'entity_name':
+'raw_data_entity', 'entity_type': 'EXTERNAL_SOURCES_PULL_BASED_RAW_DATA', 'entity_source':
+'ENTITY_EVENT', 'depends_on_entity': 'load_raw_data_job', 'entity_workflow': {'name':
+'generate_report_workflow', 'class_name': 'com.cyoda.tdb.model.treenode.TreeNodeEntity',
+'transitions': [{'name': 'generate_report', 'description': 'Generate a report based on the loaded
+raw data', 'start_state': 'raw_data_loaded', 'start_state_description': 'State after raw data has
+been loaded', 'end_state': 'report_generated', 'end_state_description': 'Report has been
+successfully generated', 'criteria': {'name': 'trigger_generate_report', 'description': 'Triggered
+after raw data loading completes'}, 'process': {'name': 'generate_report_process', 'description':
+'Process to generate report from raw data', 'adds_new_entites': 'report_entity'}}]}}"
+##you
+"what schema would you suggest"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "entity": {
+    "created_at": "2023-10-07T14:30:00Z",
+    "data": [
+      {
+        "id": 1,
+        "value": "Example record 1"
+      },
+      {
+        "id": 2,
+        "value": "Example record 2"
+      },
+      {
+        "id": 3,
+        "value": "Example record 3"
+      }
+    ],
+    "data_ingestion_status": "completed",
+    "depends_on_entity": "load_raw_data_job",
+    "entity_name": "raw_data_entity",
+    "entity_source": "ENTITY_EVENT",
+    "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+    "error_details": [
+      {
+        "error_message": "Invalid data format",
+        "record_id": 12
+      },
+      {
+        "error_message": "Missing required field",
+        "record_id": 34
+      }
+    ],
+    "failed_records": 50,
+    "status": "active",
+    "success_records": 1450,
+    "total_records": 1500,
+    "updated_at": "2023-10-07T14:30:00Z"
+  }
+}"
+##chat
+"Would you like to edit the model?"
+##you
+"no, it's ok"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "entity": {
+    "created_at": "2023-10-07T14:30:00Z",
+    "data": [
+      {
+        "id": 1,
+        "value": "Example record 1"
+      },
+      {
+        "id": 2,
+        "value": "Example record 2"
+      },
+      {
+        "id": 3,
+        "value": "Example record 3"
+      }
+    ],
+    "data_ingestion_status": "completed",
+    "depends_on_entity": "load_raw_data_job",
+    "entity_name": "raw_data_entity",
+    "entity_source": "ENTITY_EVENT",
+    "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+    "error_details": [
+      {
+        "error_message": "Invalid data format",
+        "record_id": 12
+      },
+      {
+        "error_message": "Missing required field",
+        "record_id": 34
+      }
+    ],
+    "failed_records": 50,
+    "status": "active",
+    "success_records": 1450,
+    "total_records": 1500,
+    "updated_at": "2023-10-07T14:30:00Z"
+  }
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Let's generate the entity schema. Would you like to specify the data for entity: {'entity_name':
+'report_entity', 'entity_type': 'SECONDARY_DATA', 'entity_source': 'API_REQUEST',
+'depends_on_entity': 'raw_data_entity', 'entity_workflow': {'name': 'report_analysis_workflow',
+'class_name': 'com.cyoda.tdb.model.treenode.TreeNodeEntity', 'transitions': [{'name':
+'analyze_report', 'description': 'Analyze generated report', 'start_state': 'report_generated',
+'start_state_description': 'State after the report has been generated', 'end_state':
+'report_analyzed', 'end_state_description': 'Report has been successfully analyzed', 'criteria':
+{'name': 'trigger_report_analysis', 'description': 'Triggered after report generation'}, 'process':
+{'name': 'analyze_report_process', 'description': 'Process to analyze the generated report',
+'adds_new_entites': 'None'}}]}}"
+##you
+"you decide"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "entity": {
+    "created_at": "2023-10-07T15:00:00Z",
+    "data": [
+      {
+        "id": 1,
+        "metric": "Average Value",
+        "value": 100.5
+      },
+      {
+        "id": 2,
+        "metric": "Total Successful Records",
+        "value": 1450
+      },
+      {
+        "id": 3,
+        "metric": "Total Failed Records",
+        "value": 50
+      }
+    ],
+    "depends_on_entity": "raw_data_entity",
+    "entity_name": "report_entity",
+    "entity_source": "API_REQUEST",
+    "entity_type": "SECONDARY_DATA",
+    "failed_records": 0,
+    "report_generated_time": "2023-10-07T15:00:00Z",
+    "report_status": "completed",
+    "status": "active",
+    "success_records": 1450,
+    "summary": {
+      "invalid_data": 50,
+      "total_data_processed": 1500,
+      "valid_data": 1450
+    },
+    "total_records": 1450,
+    "updated_at": "2023-10-07T15:00:00Z"
+  }
+}"
+##chat
+"Would you like to edit the model?"
+##you
+"no, it's ok"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "entity": {
+    "created_at": "2023-10-07T15:00:00Z",
+    "data": [
+      {
+        "id": 1,
+        "metric": "Average Value",
+        "value": 100.5
+      },
+      {
+        "id": 2,
+        "metric": "Total Successful Records",
+        "value": 1450
+      },
+      {
+        "id": 3,
+        "metric": "Total Failed Records",
+        "value": 50
+      }
+    ],
+    "depends_on_entity": "raw_data_entity",
+    "entity_name": "report_entity",
+    "entity_source": "API_REQUEST",
+    "entity_type": "SECONDARY_DATA",
+    "failed_records": 0,
+    "report_generated_time": "2023-10-07T15:00:00Z",
+    "report_status": "completed",
+    "status": "active",
+    "success_records": 1450,
+    "summary": {
+      "invalid_data": 50,
+      "total_data_processed": 1500,
+      "valid_data": 1450
+    },
+    "total_records": 1450,
+    "updated_at": "2023-10-07T15:00:00Z"
+  }
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Would you like to add any changes to entity workflow {'entity_name': 'load_raw_data_job',
+'entity_type': 'JOB', 'entity_source': 'API_REQUEST', 'depends_on_entity': 'None',
+'entity_workflow': {'name': 'load_raw_data_workflow', 'class_name':
+'com.cyoda.tdb.model.treenode.TreeNodeEntity', 'transitions': [{'name': 'start_loading_raw_data',
+'description': 'Start the process of loading raw data into the system', 'start_state': 'None',
+'start_state_description': 'Initial state before loading raw data', 'end_state': 'raw_data_loaded',
+'end_state_description': 'Raw data has been successfully loaded into the system', 'criteria':
+{'name': 'trigger_load_raw_data', 'description': 'Triggered by API request to load raw data'},
+'process': {'name': 'load_raw_data', 'description': 'Process to load raw data into the system',
+'adds_new_entites': 'raw_data_entity'}}]}}"
+##you
+"no, it's ok"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "entity_workflow": {
+    "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+    "name": "load_raw_data_workflow",
+    "transitions": [
+      {
+        "criteria": {
+          "description": "Triggered by API request to load raw data",
+          "name": "trigger_load_raw_data"
+        },
+        "description": "Starts the process of loading raw data into the system",
+        "end_state": "raw_data_loaded",
+        "end_state_description": "Raw data has been successfully loaded into the system",
+        "name": "start_loading_raw_data",
+        "process": {
+          "adds_new_entites": "raw_data_entity",
+          "description": "Process to load raw data into the system",
+          "name": "load_raw_data"
+        },
+        "start_state": "None",
+        "start_state_description": "Initial state before loading raw data"
+      }
+    ]
+  }
+}"
+##chat
+"Would you like to edit the workflow?"
+##you
+"no, it's ok"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "entity_workflow": {
+    "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+    "name": "load_raw_data_workflow",
+    "transitions": [
+      {
+        "criteria": {
+          "description": "Triggered by API request to load raw data",
+          "name": "trigger_load_raw_data"
+        },
+        "description": "Starts the process of loading raw data into the system",
+        "end_state": "raw_data_loaded",
+        "end_state_description": "Raw data has been successfully loaded into the system",
+        "name": "start_loading_raw_data",
+        "process": {
+          "adds_new_entites": "raw_data_entity",
+          "description": "Process to load raw data into the system",
+          "name": "load_raw_data"
+        },
+        "start_state": "None",
+        "start_state_description": "Initial state before loading raw data"
+      }
+    ]
+  }
+}"
+##chat
+"Generating Cyoda design: please wait"

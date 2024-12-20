@@ -1,0 +1,1112 @@
+##chat
+"Hello! What application would you like to build? Could you, please, share your ideas?"
+##you
+"Hello! I'd like to build a data ingestion app that ingests data from https://api.opendata.esett.com"
+##chat
+"{
+  "can_proceed": false,
+  "questions_to_answer": [
+    "What specific data endpoints from the API are you interested in ingesting?",
+    "Are there any specific transformation or processing requirements for the ingested data?",
+    "What should be the trigger for the data ingestion job (e.g., scheduled, on-demand)?",
+    "Do you need to store the ingested data in a specific format or database?"
+  ]
+}"
+##chat
+"Please answer the question or validate"
+##you
+"just raw data - no transformation required, the rest i will specify later"
+##chat
+"{
+  "can_proceed": false,
+  "questions_to_answer": [
+    "What specific raw data endpoints from the API are you interested in ingesting?",
+    "What is the desired frequency for the data ingestion job (e.g., scheduled, manual)?",
+    "Where would you like to store the ingested raw data?",
+    "Are there any specific error handling or logging requirements for the ingestion process?"
+  ]
+}"
+##chat
+"Please answer the question or validate"
+##you
+"i will specify later"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": false,
+  "questions_to_answer": [
+    "When do you expect to provide the specific details for the data ingestion?",
+    "Are there any other requirements or constraints you would like to share in the meantime?",
+    "Is there a preferred format or structure for the final output data?",
+    "Would you like to include any logging or monitoring requirements for the ingestion process?"
+  ]
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "entities": [
+    {
+      "depends_on_entity": "None",
+      "entity_name": "data_ingestion_job",
+      "entity_source": "SCHEDULED",
+      "entity_type": "JOB",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "data_ingestion_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Triggered by a scheduled job to ingest data.",
+              "name": "scheduled_ingestion"
+            },
+            "description": "Start the data ingestion process from the API.",
+            "end_state": "data_ingested",
+            "end_state_description": "Data has been successfully ingested.",
+            "name": "start_data_ingestion",
+            "process": {
+              "adds_new_entites": "raw_data_entity",
+              "description": "Process to ingest raw data from the specified API.",
+              "name": "ingest_raw_data"
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before data ingestion."
+          }
+        ]
+      }
+    },
+    {
+      "depends_on_entity": "data_ingestion_job",
+      "entity_name": "raw_data_entity",
+      "entity_source": "ENTITY_EVENT",
+      "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "raw_data_workflow",
+        "transitions": []
+      }
+    }
+  ]
+}"
+##chat
+"Would you like to change anything in the design?"
+##you
+"it's ok"
+##chat
+"{
+  "can_proceed": true,
+  "entities": [
+    {
+      "depends_on_entity": "None",
+      "entity_name": "data_ingestion_job",
+      "entity_source": "SCHEDULED",
+      "entity_type": "JOB",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "data_ingestion_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Triggered by a scheduled job to ingest data.",
+              "name": "scheduled_ingestion"
+            },
+            "description": "Start the data ingestion process from the API.",
+            "end_state": "data_ingested",
+            "end_state_description": "Data has been successfully ingested.",
+            "name": "start_data_ingestion",
+            "process": {
+              "adds_new_entites": "raw_data_entity",
+              "description": "Process to ingest raw data from the specified API.",
+              "name": "ingest_raw_data"
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before data ingestion."
+          }
+        ]
+      }
+    },
+    {
+      "depends_on_entity": "data_ingestion_job",
+      "entity_name": "raw_data_entity",
+      "entity_source": "ENTITY_EVENT",
+      "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "raw_data_workflow",
+        "transitions": []
+      }
+    }
+  ]
+}"
+##chat
+"Please answer the question or validate"
+##you
+"it's ok"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "entities": [
+    {
+      "depends_on_entity": "None",
+      "entity_name": "data_ingestion_job",
+      "entity_source": "SCHEDULED",
+      "entity_type": "JOB",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "data_ingestion_workflow",
+        "transitions": [
+          {
+            "criteria": {
+              "description": "Triggered by a scheduled job to ingest data.",
+              "name": "scheduled_ingestion"
+            },
+            "description": "Start the data ingestion process from the API.",
+            "end_state": "data_ingested",
+            "end_state_description": "Data has been successfully ingested.",
+            "name": "start_data_ingestion",
+            "process": {
+              "adds_new_entites": "raw_data_entity",
+              "description": "Process to ingest raw data from the specified API.",
+              "name": "ingest_raw_data"
+            },
+            "start_state": "None",
+            "start_state_description": "Initial state before data ingestion."
+          }
+        ]
+      }
+    },
+    {
+      "depends_on_entity": "data_ingestion_job",
+      "entity_name": "raw_data_entity",
+      "entity_source": "ENTITY_EVENT",
+      "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+      "entity_workflow": {
+        "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+        "name": "raw_data_workflow",
+        "transitions": []
+      }
+    }
+  ]
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Let's generate the entity schema. Would you like to specify the data for entity: {'entity_name':
+'data_ingestion_job', 'entity_type': 'JOB', 'entity_source': 'SCHEDULED', 'depends_on_entity':
+'None', 'entity_workflow': {'name': 'data_ingestion_workflow', 'class_name':
+'com.cyoda.tdb.model.treenode.TreeNodeEntity', 'transitions': [{'name': 'start_data_ingestion',
+'description': 'Start the data ingestion process from the API.', 'start_state': 'None',
+'start_state_description': 'Initial state before data ingestion.', 'end_state': 'data_ingested',
+'end_state_description': 'Data has been successfully ingested.', 'criteria': {'name':
+'scheduled_ingestion', 'description': 'Triggered by a scheduled job to ingest data.'}, 'process':
+{'name': 'ingest_raw_data', 'description': 'Process to ingest raw data from the specified API.',
+'adds_new_entites': 'raw_data_entity'}}]}}"
+##you
+"can you generate an example"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "entity": {
+    "api_endpoint": "https://api.opendata.esett.com/data",
+    "created_at": "2023-10-01T08:00:00Z",
+    "data_source": {
+      "description": "Ingest raw data from external API for processing.",
+      "type": "external_api"
+    },
+    "id": "job_12345",
+    "last_run": "2023-10-09T10:00:00Z",
+    "name": "data_ingestion_job",
+    "parameters": {
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN",
+        "Content-Type": "application/json"
+      },
+      "query_parameters": {
+        "limit": 100,
+        "offset": 0
+      },
+      "request_method": "GET"
+    },
+    "schedule_time": "2023-10-10T10:00:00Z",
+    "status": "scheduled",
+    "updated_at": "2023-10-09T12:00:00Z"
+  }
+}"
+##chat
+"Would you like to edit the model?"
+##you
+"it's ok"
+##chat
+"{
+  "can_proceed": true,
+  "entity": {
+    "api_endpoint": "https://api.opendata.esett.com/data",
+    "created_at": "2023-10-01T08:00:00Z",
+    "data_source": {
+      "description": "Ingest raw data from external API for processing.",
+      "type": "external_api"
+    },
+    "error_logs": [],
+    "id": "job_12345",
+    "last_run": "2023-10-09T10:00:00Z",
+    "max_retries": 3,
+    "name": "data_ingestion_job",
+    "next_run_time": "2023-10-10T10:00:00Z",
+    "parameters": {
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN",
+        "Content-Type": "application/json"
+      },
+      "query_parameters": {
+        "limit": 100,
+        "offset": 0
+      },
+      "request_method": "GET"
+    },
+    "retry_count": 0,
+    "schedule_time": "2023-10-10T10:00:00Z",
+    "status": "scheduled",
+    "updated_at": "2023-10-09T12:00:00Z"
+  }
+}"
+##chat
+"Please answer the question or validate"
+##you
+"correct"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "entity": {
+    "api_endpoint": "https://api.opendata.esett.com/data",
+    "created_at": "2023-10-01T08:00:00Z",
+    "data_source": {
+      "description": "Ingest raw data from external API for processing.",
+      "type": "external_api"
+    },
+    "description": "This job ingests raw data from the specified external API at scheduled intervals.",
+    "error_logs": [],
+    "id": "job_12345",
+    "last_run": "2023-10-09T10:00:00Z",
+    "max_retries": 3,
+    "name": "data_ingestion_job",
+    "next_run_time": "2023-10-10T10:00:00Z",
+    "parameters": {
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN",
+        "Content-Type": "application/json"
+      },
+      "query_parameters": {
+        "limit": 100,
+        "offset": 0
+      },
+      "request_method": "GET"
+    },
+    "retry_count": 0,
+    "schedule_time": "2023-10-10T10:00:00Z",
+    "status": "scheduled",
+    "updated_at": "2023-10-09T12:00:00Z"
+  }
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Let's set up a connection to ingest data from an external source. Could you please provide the
+configuration details? You can either share a link to the relevant API documentation (e.g., Swagger
+or OpenAPI) or offer instructions for configuring the connection. If applicable, please include any
+additional details such as specific endpoints, default parameters, or other relevant information."
+##you
+""components": {
+    "schemas": {
+      "AggregatedConsumptionDTO": {
+        "properties": {
+          "flex": {
+            "type": "number"
+          },
+          "mba": {
+            "type": "string"
+          },
+          "metered": {
+            "type": "number"
+          },
+          "profiled": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "timestampUTC": {
+            "type": "string"
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "BalanceResponsiblePartyDTO": {
+        "properties": {
+          "brpCode": {
+            "type": "string"
+          },
+          "brpName": {
+            "type": "string"
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "codingScheme": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "validityEnd": {
+            "type": "string"
+          },
+          "validityStart": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "BalanceServiceProviderDTO": {
+        "properties": {
+          "bspCode": {
+            "type": "string"
+          },
+          "bspName": {
+            "type": "string"
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "codingScheme": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DistributionSystemOperatorDTO": {
+        "properties": {
+          "codingScheme": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "dsoCode": {
+            "type": "string"
+          },
+          "dsoName": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "FeesDTO": {
+        "properties": {
+          "country": {
+            "type": "string"
+          },
+          "hourlyImbalanceFee": {
+            "type": "number"
+          },
+          "imbalanceFee": {
+            "type": "number"
+          },
+          "peakLoadFee": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "timestampUTC": {
+            "type": "string"
+          },
+          "volumeFee": {
+            "type": "number"
+          },
+          "weeklyFee": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "ImbalanceVolumeDTO": {
+        "properties": {
+          "imbalance": {
+            "type": "number"
+          },
+          "imbalancePurchase": {
+            "type": "number"
+          },
+          "imbalanceSales": {
+            "type": "number"
+          },
+          "mba": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "timestampUTC": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ImbalanceVolumeTwobalanceDTO": {
+        "properties": {
+          "consImbalance": {
+            "type": "number"
+          },
+          "consumptionImbalancePurchases": {
+            "type": "number"
+          },
+          "consumptionImbalanceSales": {
+            "type": "number"
+          },
+          "mba": {
+            "type": "string"
+          },
+          "prodImbalance": {
+            "type": "number"
+          },
+          "productionImbalancePurchases": {
+            "type": "number"
+          },
+          "productionImbalanceSales": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "timestampUTC": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "LoadProfileDTO": {
+        "properties": {
+          "mba": {
+            "type": "string"
+          },
+          "mgaCode": {
+            "type": "string"
+          },
+          "mgaName": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "timestampUTC": {
+            "type": "string"
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "MBADTO": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "MBAOptionsDTO": {
+        "properties": {
+          "country": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string"
+          },
+          "mbas": {
+            "items": {
+              "$ref": "#/components/schemas/MBADTO"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "MeteringGridAreaDto": {
+        "properties": {
+          "country": {
+            "type": "string"
+          },
+          "dsoName": {
+            "type": "string"
+          },
+          "mba": {
+            "type": "string"
+          },
+          "mgaCode": {
+            "type": "string"
+          },
+          "mgaName": {
+            "type": "string"
+          },
+          "mgaType": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ProductionVolumesDTO": {
+        "properties": {
+          "energyStorage": {
+            "type": "number"
+          },
+          "hydro": {
+            "type": "number"
+          },
+          "mba": {
+            "type": "string"
+          },
+          "nuclear": {
+            "type": "number"
+          },
+          "other": {
+            "type": "number"
+          },
+          "solar": {
+            "type": "number"
+          },
+          "thermal": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "timestampUTC": {
+            "type": "string"
+          },
+          "total": {
+            "type": "number"
+          },
+          "wind": {
+            "type": "number"
+          },
+          "windOffshore": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "ReconciliationPriceDTO": {
+        "properties": {
+          "mba": {
+            "type": "string"
+          },
+          "priceEur": {
+            "type": "number"
+          },
+          "priceSek": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "timestampUTC": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "RetailerBalanceResponsibilityDTO": {
+        "properties": {
+          "brpName": {
+            "type": "string"
+          },
+          "energyDirectionType": {
+            "type": "string"
+          },
+          "mgaName": {
+            "type": "string"
+          },
+          "reName": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "RetailerDTO": {
+        "properties": {
+          "codingScheme": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "reCode": {
+            "type": "string"
+          },
+          "reName": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SettlementBankDTO": {
+        "properties": {
+          "bic": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SinglebalancePriceDTO": {
+        "properties": {
+          "downRegPrice": {
+            "type": "number"
+          },
+          "downRegPriceFrrA": {
+            "type": "number"
+          },
+          "imblPurchasePrice": {
+            "type": "number"
+          },
+          "imblSalesPrice": {
+            "type": "number"
+          },
+          "imblSpotDifferencePrice": {
+            "type": "number"
+          },
+          "incentivisingComponent": {
+            "type": "number"
+          },
+          "mainDirRegPowerPerMBA": {
+            "type": "number"
+          },
+          "mba": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "timestampUTC": {
+            "type": "string"
+          },
+          "upRegPrice": {
+            "type": "number"
+          },
+          "upRegPriceFrrA": {
+            "type": "number"
+          },
+          "valueOfAvoidedActivation": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "TwobalancePriceDTO": {
+        "properties": {
+          "consumptionImbalancePrice": {
+            "type": "number"
+          },
+          "downRegPrice": {
+            "type": "number"
+          },
+          "mainDirRegPowerPerMBA": {
+            "type": "number"
+          },
+          "mba": {
+            "type": "string"
+          },
+          "productionImbalancePurchasePrice": {
+            "type": "number"
+          },
+          "productionImbalanceSalesPrice": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "timestampUTC": {
+            "type": "string"
+          },
+          "upRegPrice": {
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "Violation": {
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "eSett open data API",
+    "version": "0.0.1"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/EXP01/BalanceResponsibleParties": {
+      "get": {
+        "description": "Returns list of BRPs",
+        "parameters": [
+          {
+            "description": "BRP Code, free text search",
+            "in": "query",
+            "name": "code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Country 2 letter ISO code",
+            "example": "FI",
+            "in": "query",
+            "name": "country",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "BRP Name, free text search",
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceResponsiblePartyDTO"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "JSON Array of BRPs"
+          },
+          "204": {
+            "description": "If no data exists but the request is otherwise valid"
+          },
+          "400": {
+            "description": "If validation failed for any reason"
+          }
+        },
+        "summary": "Get Balance Responsible Parties",
+        "tags": [
+          "Market Parties"
+        ]
+      }
+    },
+  "servers": [
+    {
+      "url": "https://api.opendata.esett.com"
+    }
+  ]""
+##chat
+"{
+  "can_proceed": false,
+  "summary": "Connection details for eSett open data API:\n- Connection Name: eSett open data API\n- Connection Type: HTTP\n- Connection Base URL: https://api.opendata.esett.com\n- Endpoints:\n  - Method: GET, Path: /EXP01/BalanceResponsibleParties, Parameters:\n    - code: BRP Code, free text search\n    - country: Country 2 letter ISO code (example: FI)\n    - name: BRP Name, free text search"
+}"
+##chat
+"Please answer the question or validate"
+##you
+"yes, it's correct"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "summary": "Connection details for eSett open data API:\n- Connection Name: eSett open data API\n- Connection Type: HTTP\n- Connection Base URL: https://api.opendata.esett.com\n- Endpoints:\n  - Method: GET, Path: /EXP01/BalanceResponsibleParties, Parameters:\n    - code: BRP Code, free text search\n    - country: Country 2 letter ISO code (example: FI)\n    - name: BRP Name, free text search"
+}"
+##chat
+"{
+  "can_proceed": false,
+  "code": "import requests\n\nBASE_URL = 'https://api.opendata.esett.com'\n\n\ndef get_balance_responsible_parties(code=None, country=None, name=None):\n    params = {}\n    if code:\n        params['code'] = code\n    if country:\n        params['country'] = country\n    if name:\n        params['name'] = name\n    response = requests.get(f'{BASE_URL}/EXP01/BalanceResponsibleParties', params=params)\n    return response.json()\n\n\ndef ingest_data(code=None, country=None, name=None):\n    return get_balance_responsible_parties(code, country, name)\n\n\nif __name__ == '__main__':\n    # Example usage\n    data = ingest_data(code='example_code', country='FI', name='example_name')\n    print(data)"
+}"
+##chat
+"Please answer the question or validate"
+##you
+"import requests
+
+BASE_URL = 'https://api.opendata.esett.com'
+
+
+def get_balance_responsible_parties(code=None, country=None, name=None):
+    params = {}
+    if code:
+        params['code'] = code
+    if country:
+        params['country'] = country
+    if name:
+        params['name'] = name
+    response = requests.get(f'{BASE_URL}/EXP01/BalanceResponsibleParties', params=params)
+    return response.text
+
+
+def ingest_data(code=None, country=None, name=None):
+    return get_balance_responsible_parties(code, country, name)
+
+
+if __name__ == '__main__':
+    # Example usage
+    data = ingest_data(code='example_code', country='FI', name='example_name')
+    print(data)"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "code": "import requests\n\nBASE_URL = 'https://api.opendata.esett.com'\n\ndef get_balance_responsible_parties(code=None, country=None, name=None):\n    params = {}\n    if code:\n        params['code'] = code\n    if country:\n        params['country'] = country\n    if name:\n        params['name'] = name\n    response = requests.get(f'{BASE_URL}/EXP01/BalanceResponsibleParties', params=params)\n    return response.text\n\n\ndef ingest_data(code=None, country=None, name=None):\n    return get_balance_responsible_parties(code, country, name)\n\n\nif __name__ == '__main__':\n    # Example usage\n    data = ingest_data(code='example_code', country='FI', name='example_name')\n    print(data)"
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Please specify the schema for raw_data_entity."
+##you
+"[{"brpCode":"7080005051286","brpName":"Å Energi Vannkraft AS","country":"FI","businessId":"882973972","codingScheme":"GS1","validityStart":"2016-12-31T23:00:00","validityEnd":"2026-12-31T23:00:00"}]"
+##chat
+"Would you like to add any changes to entity workflow {'entity_name': 'data_ingestion_job',
+'entity_type': 'JOB', 'entity_source': 'SCHEDULED', 'depends_on_entity': 'None', 'entity_workflow':
+{'name': 'data_ingestion_workflow', 'class_name': 'com.cyoda.tdb.model.treenode.TreeNodeEntity',
+'transitions': [{'name': 'start_data_ingestion', 'description': 'Start the data ingestion process
+from the API.', 'start_state': 'None', 'start_state_description': 'Initial state before data
+ingestion.', 'end_state': 'data_ingested', 'end_state_description': 'Data has been successfully
+ingested.', 'criteria': {'name': 'scheduled_ingestion', 'description': 'Triggered by a scheduled job
+to ingest data.'}, 'process': {'name': 'ingest_raw_data', 'description': 'Process to ingest raw data
+from the specified API.', 'adds_new_entites': 'raw_data_entity'}}]}}"
+##you
+"it's ok"
+##chat
+"{
+  "can_proceed": true,
+  "entity_workflow": {
+    "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+    "name": "data_ingestion_workflow",
+    "transitions": [
+      {
+        "criteria": {
+          "description": "Triggered by a scheduled job to ingest data.",
+          "name": "scheduled_ingestion"
+        },
+        "description": "Start the data ingestion process from the API.",
+        "end_state": "data_ingested",
+        "end_state_description": "Data has been successfully ingested.",
+        "name": "start_data_ingestion",
+        "process": {
+          "adds_new_entites": "raw_data_entity",
+          "description": "Process to ingest raw data from the specified API.",
+          "name": "ingest_raw_data"
+        },
+        "start_state": "None",
+        "start_state_description": "Initial state before data ingestion."
+      }
+    ]
+  }
+}"
+##chat
+"Please answer the question or validate"
+##you
+"assert"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "entity_workflow": {
+    "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+    "name": "data_ingestion_workflow",
+    "transitions": [
+      {
+        "criteria": {
+          "description": "Triggered by a scheduled job to ingest data.",
+          "name": "scheduled_ingestion"
+        },
+        "description": "Start the data ingestion process from the API.",
+        "end_state": "data_ingested",
+        "end_state_description": "Data has been successfully ingested.",
+        "name": "start_data_ingestion",
+        "process": {
+          "adds_new_entites": "raw_data_entity",
+          "description": "Process to ingest raw data from the specified API.",
+          "name": "ingest_raw_data"
+        },
+        "start_state": "None",
+        "start_state_description": "Initial state before data ingestion."
+      }
+    ]
+  }
+}"
+##chat
+"Would you like to edit the workflow?"
+##you
+"no, it's ok"
+##chat
+"{
+  "can_proceed": true,
+  "entity_workflow": {
+    "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+    "name": "data_ingestion_workflow",
+    "transitions": [
+      {
+        "criteria": {
+          "description": "Triggered by a scheduled job to ingest data.",
+          "name": "scheduled_ingestion"
+        },
+        "description": "Start the data ingestion process from the API.",
+        "end_state": "data_ingested",
+        "end_state_description": "Data has been successfully ingested.",
+        "name": "start_data_ingestion",
+        "process": {
+          "adds_new_entites": "raw_data_entity",
+          "description": "Process to ingest raw data from the specified API.",
+          "name": "ingest_raw_data"
+        },
+        "start_state": "None",
+        "start_state_description": "Initial state before data ingestion."
+      }
+    ]
+  }
+}"
+##chat
+"Please answer the question or validate"
+##you
+"it's k"
+##you
+"it's ok"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "entity_workflow": {
+    "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+    "name": "data_ingestion_workflow",
+    "transitions": [
+      {
+        "criteria": {
+          "description": "Triggered by a scheduled job to ingest data.",
+          "name": "scheduled_ingestion"
+        },
+        "description": "Start the data ingestion process from the API.",
+        "end_state": "data_ingested",
+        "end_state_description": "Data has been successfully ingested.",
+        "name": "start_data_ingestion",
+        "process": {
+          "adds_new_entites": "raw_data_entity",
+          "description": "Process to ingest raw data from the specified API.",
+          "name": "ingest_raw_data"
+        },
+        "start_state": "None",
+        "start_state_description": "Initial state before data ingestion."
+      }
+    ]
+  }
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Would you like to specify any details for generating processors functions?"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "code": "import requests\nimport logging\nfrom common.config.config import ENTITY_VERSION\nfrom logic.app_init import entity_service\n\nlogging.basicConfig(level=logging.INFO)\nlogger = logging.getLogger(__name__)\n\n\ndef ingest_raw_data(meta, data):\n    code = data.get('code')\n    country = data.get('country')\n    name = data.get('name')\n    logger.info('Ingesting raw data with parameters - Code: {}, Country: {}, Name: {}'.format(code, country, name))\n\n    # Call the external API to get balance responsible parties\n    response = get_balance_responsible_parties(code, country, name)\n    if response:\n        raw_data_entity = {\n            'id': 'raw_data_{}'.format(data['id']),\n            'raw_data': response,\n            'created_at': meta['timestamp'],\n            'job_id': meta['job_id'],\n            'status': 'ingested'\n        }\n\n        # Save the raw data entity to the datastore\n        entity_service.add_item(raw_data_entity)\n        logger.info('Raw data successfully ingested and saved.')\n    else:\n        logger.error('Failed to retrieve data from external API.')\n\n\ndef get_balance_responsible_parties(code=None, country=None, name=None):\n    BASE_URL = 'https://api.opendata.esett.com'\n    params = {}\n    if code:\n        params['code'] = code\n    if country:\n        params['country'] = country\n    if name:\n        params['name'] = name\n    response = requests.get(f'{BASE_URL}/EXP01/BalanceResponsibleParties', params=params)\n    return response.json()\n\n\n# Example test code\nif __name__ == '__main__':\n    import unittest\n    from unittest.mock import patch, MagicMock\n\n    class TestIngestRawData(unittest.TestCase):\n\n        @patch('requests.get')\n        @patch('logic.app_init.entity_service')\n        def test_ingest_raw_data(self, mock_entity_service, mock_requests_get):\n            mock_requests_get.return_value.json.return_value = {'data': 'mocked data'}\n            mock_requests_get.return_value.status_code = 200\n            meta = {'timestamp': '2023-10-10T10:00:00Z', 'job_id': 'job_123'}\n            data = {'code': 'example_code', 'country': 'FI', 'name': 'example_name', 'id': '12345'}\n\n            ingest_raw_data(meta, data)\n            mock_entity_service.add_item.assert_called_once()\n            self.assertEqual(mock_entity_service.add_item.call_args[0][0]['raw_data'], {'data': 'mocked data'})\n\n    unittest.main()"
+}"
+##chat
+"Would you like to edit the code?"
+##you
+"ok"
+##chat
+"{
+  "can_proceed": true,
+  "code": "import requests\nimport logging\nfrom common.config.config import ENTITY_VERSION\nfrom logic.app_init import entity_service\n\nlogging.basicConfig(level=logging.INFO)\nlogger = logging.getLogger(__name__)\n\n\ndef ingest_raw_data(meta, data):\n    code = data.get('code')\n    country = data.get('country')\n    name = data.get('name')\n    logger.info('Ingesting raw data with parameters - Code: {}, Country: {}, Name: {}'.format(code, country, name))\n\n    # Call the external API to get balance responsible parties\n    response = get_balance_responsible_parties(code, country, name)\n    if response:\n        raw_data_entity = {\n            'id': 'raw_data_{}'.format(data['id']),\n            'raw_data': response,\n            'created_at': meta['timestamp'],\n            'job_id': meta['job_id'],\n            'status': 'ingested'\n        }\n\n        # Save the raw data entity to the datastore\n        entity_service.add_item(raw_data_entity)\n        logger.info('Raw data successfully ingested and saved.')\n    else:\n        logger.error('Failed to retrieve data from external API.')\n\n\ndef get_balance_responsible_parties(code=None, country=None, name=None):\n    BASE_URL = 'https://api.opendata.esett.com'\n    params = {}\n    if code:\n        params['code'] = code\n    if country:\n        params['country'] = country\n    if name:\n        params['name'] = name\n    try:\n        response = requests.get(f'{BASE_URL}/EXP01/BalanceResponsibleParties', params=params)\n        response.raise_for_status()  # Raise an error for bad responses\n        return response.json()\n    except requests.exceptions.RequestException as e:\n        logger.error(f'Error making request to API: {e}')\n        return None\n\n\n# Example test code\nif __name__ == '__main__':\n    import unittest\n    from unittest.mock import patch, MagicMock\n\n    class TestIngestRawData(unittest.TestCase):\n\n        @patch('requests.get')\n        @patch('logic.app_init.entity_service')\n        def test_ingest_raw_data(self, mock_entity_service, mock_requests_get):\n            mock_requests_get.return_value.json.return_value = {'data': 'mocked data'}\n            mock_requests_get.return_value.status_code = 200\n            meta = {'timestamp': '2023-10-10T10:00:00Z', 'job_id': 'job_123'}\n            data = {'code': 'example_code', 'country': 'FI', 'name': 'example_name', 'id': '12345'}\n\n            ingest_raw_data(meta, data)\n            mock_entity_service.add_item.assert_called_once()\n            self.assertEqual(mock_entity_service.add_item.call_args[0][0]['raw_data'], {'data': 'mocked data'})\n\n    unittest.main()"
+}"
+##chat
+"Please answer the question or validate"
+##you
+"it's ok"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "code": "import requests\nimport logging\nfrom common.config.config import ENTITY_VERSION\nfrom logic.app_init import entity_service\n\nlogging.basicConfig(level=logging.INFO)\nlogger = logging.getLogger(__name__)\n\n\ndef ingest_raw_data(meta, data):\n    code = data.get('code')\n    country = data.get('country')\n    name = data.get('name')\n    logger.info('Ingesting raw data with parameters - Code: {}, Country: {}, Name: {}'.format(code, country, name))\n\n    # Call the external API to get balance responsible parties\n    response = get_balance_responsible_parties(code, country, name)\n    if response:\n        raw_data_entity = {\n            'id': 'raw_data_{}'.format(data['id']),\n            'raw_data': response,\n            'created_at': meta['timestamp'],\n            'job_id': meta['job_id'],\n            'status': 'ingested'\n        }\n\n        # Save the raw data entity to the datastore\n        entity_service.add_item(raw_data_entity)\n        logger.info('Raw data successfully ingested and saved.')\n    else:\n        logger.error('Failed to retrieve data from external API.')\n\n\ndef get_balance_responsible_parties(code=None, country=None, name=None):\n    BASE_URL = 'https://api.opendata.esett.com'\n    params = {}\n    if code:\n        params['code'] = code\n    if country:\n        params['country'] = country\n    if name:\n        params['name'] = name\n    try:\n        response = requests.get(f'{BASE_URL}/EXP01/BalanceResponsibleParties', params=params)\n        response.raise_for_status()  # Raise an error for bad responses\n        return response.json()\n    except requests.exceptions.RequestException as e:\n        logger.error(f'Error making request to API: {e}')\n        return None\n\n\n# Example test code\nif __name__ == '__main__':\n    import unittest\n    from unittest.mock import patch, MagicMock\n\n    class TestIngestRawData(unittest.TestCase):\n\n        @patch('requests.get')\n        @patch('logic.app_init.entity_service')\n        def test_ingest_raw_data(self, mock_entity_service, mock_requests_get):\n            mock_requests_get.return_value.json.return_value = {'data': 'mocked data'}\n            mock_requests_get.return_value.status_code = 200\n            meta = {'timestamp': '2023-10-10T10:00:00Z', 'job_id': 'job_123'}\n            data = {'code': 'example_code', 'country': 'FI', 'name': 'example_name', 'id': '12345'}\n\n            ingest_raw_data(meta, data)\n            mock_entity_service.add_item.assert_called_once()\n            self.assertEqual(mock_entity_service.add_item.call_args[0][0]['raw_data'], {'data': 'mocked data'})\n\n    unittest.main()"
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Let's generate the logic to schedule saving the entity data_ingestion_job. Would you like to specify
+any details?"
+##you
+"you try"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "code": "import logging\nfrom logic.app_init import entity_service\n\nlogging.basicConfig(level=logging.INFO)\nlogger = logging.getLogger(__name__)\n\n\ndef schedule_data_ingestion_job(meta):\n    job_entity = {\n        'id': 'job_{}'.format(meta['job_id']),\n        'name': 'data_ingestion_job',\n        'status': 'scheduled',\n        'schedule_time': meta['schedule_time'],\n        'api_endpoint': 'https://api.opendata.esett.com/data',\n        'created_at': meta['timestamp'],\n        'updated_at': meta['timestamp'],\n        'description': 'This job ingests raw data from the specified external API at scheduled intervals.'\n    }\n\n    # Save the job entity to the datastore\n    entity_service.add_item(job_entity)\n    logger.info('Job entity successfully scheduled and saved: {}'.format(job_entity))\n\n\n# Example test code\nif __name__ == '__main__':\n    import unittest\n    from unittest.mock import patch, MagicMock\n\n    class TestScheduleDataIngestionJob(unittest.TestCase):\n\n        @patch('logic.app_init.entity_service')\n        def test_schedule_data_ingestion_job(self, mock_entity_service):\n            meta = {'job_id': '123', 'schedule_time': '2023-10-10T10:00:00Z', 'timestamp': '2023-10-01T08:00:00Z'}\n            schedule_data_ingestion_job(meta)\n            mock_entity_service.add_item.assert_called_once()\n            self.assertEqual(mock_entity_service.add_item.call_args[0][0]['name'], 'data_ingestion_job')\n\n    unittest.main()"
+}"
+##chat
+"Would you like to edit the code?"
+##you
+"Return well formatted code
+
+import logging\nfrom logic.app_init import entity_service\n\nlogging.basicConfig(level=logging.INFO)\nlogger = logging.getLogger(__name__)\n\n\ndef schedule_data_ingestion_job(meta):\n    job_entity = {\n        'id': 'job_{}'.format(meta['job_id']),\n        'name': 'data_ingestion_job',\n        'status': 'scheduled',\n        'schedule_time': meta['schedule_time'],\n        'api_endpoint': 'https://api.opendata.esett.com/data',\n        'created_at': meta['timestamp'],\n        'updated_at': meta['timestamp'],\n        'description': 'This job ingests raw data from the specified external API at scheduled intervals.'\n    }\n\n    # Save the job entity to the datastore\n    entity_service.add_item(job_entity)\n    logger.info('Job entity successfully scheduled and saved: {}'.format(job_entity))\n\n\n# Example test code\nif __name__ == '__main__':\n    import unittest\n    from unittest.mock import patch, MagicMock\n\n    class TestScheduleDataIngestionJob(unittest.TestCase):\n\n        @patch('logic.app_init.entity_service')\n        def test_schedule_data_ingestion_job(self, mock_entity_service):\n            meta = {'job_id': '123', 'schedule_time': '2023-10-10T10:00:00Z', 'timestamp': '2023-10-01T08:00:00Z'}\n            schedule_data_ingestion_job(meta)\n            mock_entity_service.add_item.assert_called_once()\n            self.assertEqual(mock_entity_service.add_item.call_args[0][0]['name'], 'data_ingestion_job')\n\n    unittest.main()"
+##chat
+"{
+  "can_proceed": true,
+  "code": "import logging\nfrom logic.app_init import entity_service\n\nlogging.basicConfig(level=logging.INFO)\nlogger = logging.getLogger(__name__)\n\n\ndef schedule_data_ingestion_job(meta):\n    job_entity = {\n        'id': 'job_{}'.format(meta['job_id']),\n        'name': 'data_ingestion_job',\n        'status': 'scheduled',\n        'schedule_time': meta['schedule_time'],\n        'api_endpoint': 'https://api.opendata.esett.com/data',\n        'created_at': meta['timestamp'],\n        'updated_at': meta['timestamp'],\n        'description': 'This job ingests raw data from the specified external API at scheduled intervals.'\n    }\n\n    # Save the job entity to the datastore\n    entity_service.add_item(job_entity)\n    logger.info('Job entity successfully scheduled and saved: {}'.format(job_entity))\n\n\n# Example test code\nif __name__ == '__main__':\n    import unittest\n    from unittest.mock import patch, MagicMock\n\n    class TestScheduleDataIngestionJob(unittest.TestCase):\n\n        @patch('logic.app_init.entity_service')\n        def test_schedule_data_ingestion_job(self, mock_entity_service):\n            meta = {'job_id': '123', 'schedule_time': '2023-10-10T10:00:00Z', 'timestamp': '2023-10-01T08:00:00Z'}\n            schedule_data_ingestion_job(meta)\n            mock_entity_service.add_item.assert_called_once()\n            self.assertEqual(mock_entity_service.add_item.call_args[0][0]['name'], 'data_ingestion_job')\n\n    unittest.main()"
+}"
+##chat
+"Please answer the question or validate"
+##you
+"ok"
+##chat
+"Finishing iteration with result:"
+##chat
+"{
+  "can_proceed": true,
+  "code": "import logging\nfrom logic.app_init import entity_service\n\nlogging.basicConfig(level=logging.INFO)\nlogger = logging.getLogger(__name__)\n\n\ndef schedule_data_ingestion_job(meta):\n    job_entity = {\n        'id': 'job_{}'.format(meta['job_id']),\n        'name': 'data_ingestion_job',\n        'status': 'scheduled',\n        'schedule_time': meta['schedule_time'],\n        'api_endpoint': 'https://api.opendata.esett.com/data',\n        'created_at': meta['timestamp'],\n        'updated_at': meta['timestamp'],\n        'description': 'This job ingests raw data from the specified external API at scheduled intervals.'\n    }\n\n    # Save the job entity to the datastore\n    entity_service.add_item(job_entity)\n    logger.info('Job entity successfully scheduled and saved: {}'.format(job_entity))\n\n\n# Example test code\nif __name__ == '__main__':\n    import unittest\n    from unittest.mock import patch, MagicMock\n\n    class TestScheduleDataIngestionJob(unittest.TestCase):\n\n        @patch('logic.app_init.entity_service')\n        def test_schedule_data_ingestion_job(self, mock_entity_service):\n            meta = {'job_id': '123', 'schedule_time': '2023-10-10T10:00:00Z', 'timestamp': '2023-10-01T08:00:00Z'}\n            schedule_data_ingestion_job(meta)\n            mock_entity_service.add_item.assert_called_once()\n            self.assertEqual(mock_entity_service.add_item.call_args[0][0]['name'], 'data_ingestion_job')\n\n    unittest.main()"
+}"
+##chat
+"Generating Cyoda design: please wait"
+##chat
+"Finished"

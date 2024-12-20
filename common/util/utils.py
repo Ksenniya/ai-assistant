@@ -198,21 +198,27 @@ def timestamp_before(seconds: int) -> int:
 
 def clean_formatting(text):
     """
-    This function simulates the behavior of text pasted into Google search:
-    - Removes leading and trailing whitespace.
-    - Condenses multiple spaces into a single space.
-    - Keeps alphanumeric characters and spaces only, removing other characters.
-
-    :param answer: The input string to be cleaned
-    :return: A cleaned string
+    Convert multi-line text into a single line, preserving all other content.
     """
-    # Remove leading and trailing whitespace
-    text = text.strip()
-
-    # Condense multiple spaces into a single space
-    text = re.sub(r'\s+', ' ', text)
-
-    # Remove non-alphanumeric characters (excluding spaces)
-    text = re.sub(r'[^\w\s]', '', text)
-
-    return text
+    # Replace any sequence of newlines (and carriage returns) with a single space
+    return re.sub(r'[\r\n]+', ' ', text)
+# def clean_formatting(text):
+#     """
+#     This function simulates the behavior of text pasted into Google search:
+#     - Removes leading and trailing whitespace.
+#     - Condenses multiple spaces into a single space.
+#     - Keeps alphanumeric characters and spaces only, removing other characters.
+#
+#     :param answer: The input string to be cleaned
+#     :return: A cleaned string
+#     """
+#     # Remove leading and trailing whitespace
+#     text = text.strip()
+#
+#     # Condense multiple spaces into a single space
+#     text = re.sub(r'\s+', ' ', text)
+#
+#     # Remove non-alphanumeric characters (excluding spaces)
+#     text = re.sub(r'[^\w\s]', '', text)
+#
+#     return text

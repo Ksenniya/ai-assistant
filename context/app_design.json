@@ -1,0 +1,188 @@
+{
+  "entity": {
+    "type": {
+      "JOB": {
+        "source": {
+          "API_REQUEST": {},
+          "SCHEDULED": {},
+          "ENTITY_EVENT": {}
+        },
+        "example_transitions": [
+          {
+            "name": "ingest_data",
+            "description": "Ingest data from a connection. Provide raw data entity name. When you get data, save it to this entity using entity_service def add_item(). Wait until ingestion status is successful, then consider the transition successful.",
+            "secondary_entities_to_consider": [
+              "RAW_DATA"
+            ],
+            "actions_to_consider": [
+              "data_ingestion.ingest_data_from_connection(entity_name) // returns raw_request_id",
+              "entity_service.save_secondary_data(...)"
+            ],
+            "data_to_remember": [
+              "raw_request_id"
+            ],
+            "transition_type": "automatic",
+            "depends_on": [
+              "RAW_DATA"
+            ]
+          },
+          {
+            "name": "transform_data",
+            "description": "Transform data based on user requirements. Retrieve secondary data and perform necessary transformations.",
+            "secondary_entities_to_consider": [
+              "SECONDARY_DATA"
+            ],
+            "actions_to_consider": [
+              "entity_service.get_item(secondary_data_id)",
+              "transform_data(): based on the user requirement",
+              "entity_service.add_item(secondary_data)"
+            ],
+            "transition_type": "automatic",
+            "depends_on": [
+              "RAW_DATA"
+            ]
+          },
+          {
+            "name": "enrich_data",
+            "description": "Enrich the transformed data with additional information. This could involve fetching external data or applying enrichment logic.",
+            "secondary_entities_to_consider": [
+              "SECONDARY_DATA"
+            ],
+            "actions_to_consider": [
+              "entity_service.get_item(secondary_data_id)",
+              "enrich_data(): based on the user requirement",
+              "entity_service.add_item(secondary_data)"
+            ],
+            "transition_type": "automatic",
+            "depends_on": [
+              "TRANSFORMED_SECONDARY_DATA"
+            ]
+          },
+          {
+            "name": "aggregate_data",
+            "description": "Aggregate the enriched data to generate final results. This may involve calculations or grouping data.",
+            "secondary_entities_to_consider": [
+              "SECONDARY_DATA"
+            ],
+            "actions_to_consider": [
+              "entity_service.get_item(secondary_data_id)",
+              "aggregate_data(): based on the user requirement",
+              "entity_service.add_item(secondary_data)"
+            ],
+            "transition_type": "automatic",
+            "depends_on": [
+              "ENRICHED_SECONDARY_DATA"
+            ]
+          },
+          {
+            "name": "add_report",
+            "description": "Generate a report from the aggregated data and store it in the system for future use.",
+            "secondary_entities_to_consider": [
+              "REPORT"
+            ],
+            "actions_to_consider": [
+              "get_report_from_trino(user_requirement)",
+              "entity_service.add_item(raw_data)"
+            ],
+            "transition_type": "manual",
+            "depends_on": [
+              "AGGREGATED_SECONDARY_DATA"
+            ]
+          }
+        ]
+      },
+      "DATA": {
+        "type": [
+          {
+            "RAW_DATA": {
+              "type": [
+                {
+                  "PULL_BASED_RAW_DATA": {
+                    "type": [
+                      {
+                        "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA": {},
+                        "WEB_SCRAPING_PULL_BASED_RAW_DATA": {},
+                        "TRANSACTIONAL_PULL_BASED_RAW_DATA": {}
+                      }
+                    ],
+                    "source": {
+                      "ENTITY_EVENT": {
+                        "depends_on": "JOB"
+                      }
+                    },
+                    "example_transitions": [
+                      "Transitions for RAW_DATA are handled within the job entity, where the transformations and processing logic occur."
+                    ]
+                  },
+                  "PUSH_BASED_RAW_DATA": {
+                    "type": [
+                      {
+                        "EXTERNAL_SOURCES_PUSH_BASED_RAW_DATA": {},
+                        "WEB_SCRAPING_PUSH_BASED_RAW_DATA": {},
+                        "TRANSACTIONAL_PUSH_BASED_RAW_DATA": {}
+                      }
+                    ],
+                    "source": [
+                      {
+                        "ENTITY_EVENT": {
+                          "depends_on": "another entity"
+                        },
+                        "API_REQUEST": {
+                          "depends_on": "None"
+                        }
+                      }
+                    ],
+                    "example_transitions": [
+                      "send_notification",
+                      "send_email",
+                      "do_some_business_logic",
+                      "add_some_secondary_data"
+                    ]
+                  }
+                }
+              ]
+            },
+            "SECONDARY_DATA": {
+              "type": [
+                {
+                  "TRANSFORMED_SECONDARY_DATA": {},
+                  "ENRICHED_SECONDARY_DATA": {},
+                  "AGGREGATED_SECONDARY_DATA": {}
+                }
+              ],
+              "source": {
+                "ENTITY_EVENT": {
+                  "depends_on": "JOB"
+                }
+              },
+              "example_transitions": [
+                "Transitions for SECONDARY_DATA are handled within the job entity, including the transformation, enrichment, and aggregation processes."
+              ]
+            }
+          }
+        ]
+      },
+      "UTIL": {
+        "source": {
+          "API_REQUEST": {},
+          "SCHEDULED": {},
+          "ENTITY_EVENT": {}
+        }
+      },
+      "CONFIG": {
+        "source": {
+          "API_REQUEST": {}
+        }
+      },
+      "BUSINESS_ENTITY": {
+        "source": {
+          "API_REQUEST": {},
+          "ENTITY_EVENT": {}
+        },
+        "example_transitions": [
+          "Transitions for BUSINESS_ENTITY depend on the specific use case, which will vary based on the user requirement."
+        ]
+      }
+    }
+  }
+}

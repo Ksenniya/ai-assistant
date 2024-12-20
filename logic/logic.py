@@ -19,6 +19,7 @@ NOTIFICATION = "notification"
 # Setup logging
 logger = logging.getLogger(__name__)
 
+
 # def question(event: Dict[str, Any], stack) -> None:
 #     """Enqueue a question event."""
 #     question_queue.put(event)
@@ -27,18 +28,39 @@ def process_answer(_event: Dict[str, Any], chat) -> None:
     """
     Process an answer event by interacting with the chat service and managing the event stack.
     """
-    result = _chat(_event=_event, token=cyoda_token, ai_endpoint=CYODA_AI_API, chat_id=chat["chat_id"])
-    question_event = _get_event_template(question=result, prompt='', max_iteration=0, notification='')
+    result = _chat(chat=chat, _event=_event, token=cyoda_token, ai_endpoint=_event.get("prompt", {}).get("api", CYODA_AI_API),
+                   chat_id=chat["chat_id"])
+    question_event = _get_event_template(question=result, prompt='', max_iteration=0, notification='', result_data = '', function='', entity = None)
     stack = chat["chat_flow"]["current_flow"]
-    if isinstance(result, dict) and result.get(CAN_PROCEED) is not None and result.get(CAN_PROCEED) is False and _event.get("iteration", 0) < _event.get("max_iteration", 0):
+    if repeat_iteration(_event, result):
         _event["iteration"] += 1
         stack.append(_event)
         stack.append({QUESTION: QUESTION_OR_VALIDATE})
         stack.append(question_event)
     else:
-        notification_event = _get_event_template(notification=result, prompt='', max_iteration=0, question = '')
+        notification_event = _get_event_template(notification=result, prompt='', max_iteration=0, question='', result_data = '', function='', entity = None)
         stack.append(notification_event)
         stack.append({NOTIFICATION: "Finishing iteration with result: "})
+    if _event.get("prompt", {}).get("function", ''):
+        function_event = _get_event_template(question='',  prompt='', max_iteration=0, notification='', result_data = result, function=_event.get("prompt", {}).get("function", ''), entity = _event.get("entity", {}))
+        dispatch_function(function_event, chat)
+
+
+
+def repeat_iteration(_event, result):
+    iteration = _event.get("iteration", 0)
+    max_iteration = _event.get("max_iteration", 0)
+    # Safely extract can_proceed only if `result` is a dict
+    if isinstance(result, dict):
+        can_proceed = result.get(CAN_PROCEED)  # could be True, False, or None
+    else:
+        can_proceed = None
+    # Construct the condition piece by piece for clarity
+    has_valid_can_proceed = (can_proceed is not None)
+    needs_initial_iteration = (iteration == 0 and max_iteration > 0)
+    cannot_proceed = (can_proceed is False or needs_initial_iteration)
+    has_remaining_iterations = (iteration < max_iteration)
+    return has_valid_can_proceed and cannot_proceed and has_remaining_iterations
 
 
 async def process_dialogue_script(token, technical_id) -> None:
@@ -66,8 +88,8 @@ async def process_dialogue_script(token, technical_id) -> None:
         await clients_queue.put(technical_id)
 
     entity_service.update_item(token=token,
-                            entity_model="chat",
-                            entity_version=ENTITY_VERSION,
-                            technical_id=technical_id,
-                            entity=chat,
-                            meta={})
+                               entity_model="chat",
+                               entity_version=ENTITY_VERSION,
+                               technical_id=technical_id,
+                               entity=chat,
+                               meta={})

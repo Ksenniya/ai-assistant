@@ -175,7 +175,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     def _save_entity_schema(token, entity_name, version, data):
-        path = f"treeNode/model/import/JSON/SAMPLE_DATA/{entity_name}/{version}"
+        path = f"entity/JSON/TREE/{entity_name}/{version}"
 
         try:
             response = send_post_request(token=token, api_url=API_URL, path=path, data=data)
