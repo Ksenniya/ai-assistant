@@ -34,6 +34,17 @@ async def add_cors_headers():
         return response
 
 
+@app.before_serving
+async def add_cors_headers():
+    @app.after_request
+    async def apply_cors(response):
+        # Set CORS headers for all HTTP requests
+        response.headers['Access-Control-Allow-Origin'] = '*'  # Allow all origins
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'  # Allow these methods
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'  # Allow these headers
+        response.headers['Access-Control-Allow-Credentials'] = 'true'  # Allow credentials
+        return response
+
 @app.errorhandler(UnauthorizedAccessException)
 async def handle_unauthorized_exception(error):
     return jsonify({"error": str(error)}), 401
