@@ -23,14 +23,16 @@ GRPC_ADDRESS = os.environ["GRPC_ADDRESS"]
 GRPC_PROCESSOR_TAG=os.getenv("GRPC_PROCESSOR_TAG", "elt")
 
 # Load ai assistant environment variables
-CLONE_REPO = os.environ["CLONE_REPO"]
-MOCK_AI = os.environ["MOCK_AI"]
-PROJECT_DIR = os.environ["PROJECT_DIR"]
-INSTRUCTION_URL = os.environ["INSTRUCTION_URL"]
-REPOSITORY_URL = os.environ["REPOSITORY_URL"]
-CYODA_AI_API = os.environ["CYODA_AI_API"]
-WORKFLOW_AI_API = os.environ["WORKFLOW_AI_API"]
-VALIDATION_MAX_RETRIES = int(os.environ["VALIDATION_MAX_RETRIES"])
-MAX_ITERATION = int(os.environ["MAX_ITERATION"])
-NUM_MOCK_ARR_ITEMS = int(os.environ["NUM_MOCK_ARR_ITEMS"])
-REPOSITORY_NAME = REPOSITORY_URL.split('/')[-1].replace('.git', '')
+CLONE_REPO = os.getenv("CLONE_REPO")
+MOCK_AI = os.getenv("MOCK_AI")
+PROJECT_DIR = os.getenv("PROJECT_DIR")
+INSTRUCTION_URL = os.getenv("INSTRUCTION_URL")
+REPOSITORY_URL = os.getenv("REPOSITORY_URL")
+CYODA_AI_API = os.getenv("CYODA_AI_API")
+WORKFLOW_AI_API = os.getenv("WORKFLOW_AI_API")
+CONNECTION_AI_API = os.getenv("CONNECTION_AI_API")
+RANDOM_AI_API = os.getenv("RANDOM_AI_API")
+VALIDATION_MAX_RETRIES = int(os.getenv("VALIDATION_MAX_RETRIES"))
+MAX_ITERATION = int(os.getenv("MAX_ITERATION"))
+NUM_MOCK_ARR_ITEMS = int(os.getenv("NUM_MOCK_ARR_ITEMS"))
+REPOSITORY_NAME = os.getenv("REPOSITORY_URL").split('/')[-1].replace('.git', '')

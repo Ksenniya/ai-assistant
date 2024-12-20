@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import functools
+import logging
 import queue
 
 import jwt
@@ -15,8 +16,11 @@ from logic.logic import process_dialogue_script
 from logic.init import ai_service, cyoda_token, entity_service
 from logic.notifier import clients_queue
 
+logger = logging.getLogger('django')
+
 app = Quart(__name__, static_folder='static', static_url_path='')
 app = cors(app, allow_origin="*")
+
 
 @app.before_serving
 async def add_cors_headers():
@@ -29,16 +33,20 @@ async def add_cors_headers():
         response.headers['Access-Control-Allow-Credentials'] = 'true'  # Allow credentials
         return response
 
+
 @app.errorhandler(UnauthorizedAccessException)
 async def handle_unauthorized_exception(error):
     return jsonify({"error": str(error)}), 401
+
 
 @app.errorhandler(ChatNotFoundException)
 async def handle_chat_not_found_exception(error):
     return jsonify({"error": str(error)}), 404
 
+
 @app.errorhandler(Exception)
 async def handle_any_exception(error):
+    logger.exception(error)
     return jsonify({"error": str(error)}), 500
 
 
@@ -63,6 +71,7 @@ def auth_required(func):
         return await func(*args, **kwargs)
 
     return wrapper
+
 
 # @app.websocket(API_PREFIX + '/ws')
 # @auth_required
@@ -165,7 +174,8 @@ def _submit_question_helper(chat, question):
 def _submit_answer_helper(technical_id, answer, auth_header, chat):
     question_queue = chat["questions_queue"]["new_questions"]
     if not question_queue.empty():
-        return jsonify({"message": "Could you please have a look at a couple of more questions before submitting your answer?"}), 400
+        return jsonify({
+                           "message": "Could you please have a look at a couple of more questions before submitting your answer?"}), 400
     if not answer:
         return jsonify({"message": "Invalid entity"}), 400
     stack = chat["chat_flow"]["current_flow"]
@@ -258,7 +268,7 @@ async def add_chat():
     if not name:
         return jsonify({"message": "Invalid chat name"}), 400
     # Here, handle the answer (e.g., store it, process it, etc.)
-
+    # todo use tech id as chat id
     chat = {
         "user_id": user_id,
         "chat_id": generate_uuid(),
@@ -269,12 +279,16 @@ async def add_chat():
         "name": name,
         "description": description
     }
+    logger.info("chat_id=" + str(chat["chat_id"]))
     technical_id = entity_service.add_item(token=auth_header,
-                            entity_model="chat",
-                            entity_version=ENTITY_VERSION,
-                            entity=chat)
+                                           entity_model="chat",
+                                           entity_version=ENTITY_VERSION,
+                                           entity=chat)
     await process_dialogue_script(auth_header, technical_id)
     return jsonify({"message": "Chat created", "technical_id": technical_id}), 200
+
+
+
 
 
 # polling for new questions here
@@ -308,6 +322,7 @@ async def submit_question_text(technical_id):
     req_data = await request.get_json()
     question = req_data.get('question')
     return _submit_question_helper(chat, question)
+
 
 @app.route(API_PREFIX + '/chats/<technical_id>/questions', methods=['POST'])
 @auth_required
@@ -347,7 +362,6 @@ async def submit_answer(technical_id):
     file = await request.files
     file = file.get('file')
     return _submit_answer_helper(technical_id, answer, auth_header, chat)
-
 
 
 if __name__ == '__main__':

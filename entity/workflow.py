@@ -1,11 +1,13 @@
 import glob
 import importlib
 import inspect
+import logging
 import os
 
 import entity
 from logic.init import cyoda_token
-
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 process_dispatch = {}
 
 def find_and_import_workflows():
@@ -45,7 +47,11 @@ def process_event(token, data, processor_name):
     meta = {"token": token, "entity_model": "ENTITY_PROCESSED_NAME", "entity_version": "ENTITY_VERSION"}
     payload_data = data['payload']['data']
     if processor_name in process_dispatch:
-        response = process_dispatch[processor_name](meta, payload_data)
+        try:
+            response = process_dispatch[processor_name](meta, payload_data)
+        except Exception as e:
+            logger.info(f"Error processing event: {e}")
+            raise
     else:
         raise ValueError(f"Unknown processing step: {processor_name}")
     return response

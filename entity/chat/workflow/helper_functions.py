@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 
 from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO
 from common.util.utils import read_file
@@ -21,6 +22,19 @@ if MOCK_AI== "true":
     mock_external_data_path = os.path.join(current_dir, 'data', "mock_external_data.json")
     data = read_file(mock_external_data_path)
     json_mock_data = json.loads(data)
+
+
+def _sort_entities(entity):
+    # Define order of priority
+    if entity["entity_type"].endswith("RAW_DATA"):
+        return 0
+    elif entity["entity_type"].endswith("BUSINESS_ENTITY"):
+        return 1
+    elif entity["entity_type"].endswith("JOB"):
+        return 3
+    else:
+        return 2
+
 
 
 def _copy_template_project(source_dir, target_dir):
@@ -46,15 +60,8 @@ def _get_valid_result(data, schema, token, ai_endpoint, chat_id):
                                               max_retries=VALIDATION_MAX_RETRIES)
 
 
-def _chat(_event, token, ai_endpoint, chat_id):
-    if _event.get("function") and _event["function"].get("prompt"):
-        event_prompt = _event["function"]["prompt"]
-    else:
-        event_prompt = _event.get("prompt", {})
-
-    prompt = f'{event_prompt.get("text", "")}: {_event.get("answer", "")}' if _event.get("answer") else event_prompt.get(
-        "text", "")
-    prompt = f'{prompt}. Use this json schema http://json-schema.org/draft-07/schema# to understand how to structure your answer: {event_prompt.get("schema", "")}. It will be validated against this schema. Return only json (python dictionary)' if event_prompt.get("schema") else prompt
+def _chat(chat, _event, token, ai_endpoint, chat_id):
+    event_prompt, prompt = build_prompt(_event, chat)
     result = _get_chat_response(prompt=prompt, token=token, ai_endpoint=ai_endpoint, chat_id=chat_id)
     if event_prompt.get("schema"):
         return _get_valid_result(data=result,
@@ -65,6 +72,34 @@ def _chat(_event, token, ai_endpoint, chat_id):
 
     return result
 
+
+def build_prompt(_event, chat):
+    if _event.get("function") and _event["function"].get("prompt"):
+        event_prompt = _event["function"]["prompt"]
+    else:
+        event_prompt = _event.get("prompt", {})
+    prompt_text = _enrich_prompt_with_context(_event, chat, event_prompt)
+    prompt = f'{prompt_text}: {_event.get("answer", "")}' if _event.get(
+        "answer") else prompt_text
+    prompt = f'{prompt}. Use this json schema http://json-schema.org/draft-07/schema# to understand how to structure your answer: {event_prompt.get("schema", "")}. It will be validated against this schema. Return only json (python dictionary)' if event_prompt.get(
+        "schema") else prompt
+    return event_prompt, prompt
+
+def _enrich_prompt_with_context(_event, chat, event_prompt):
+    prompt_text = event_prompt.get("text", "")
+    prompt_context = _event.get("context", {})
+    if prompt_context:
+        # Loop through each item in the context dictionary
+        for prompt_context_item, prompt_item_values in prompt_context.items():
+            chat_context = chat['cache']
+            # Assuming prompt_item_value is a dictionary with keys to resolve in chat_context
+            if isinstance(prompt_item_values, list):
+                for item in prompt_item_values:
+                    chat_context = chat_context.get(item, {})
+            # After finding the correct value in chat_context, replace in the prompt_text
+            if chat_context:
+                prompt_text = prompt_text.replace(f'${prompt_context_item}', str(chat_context))
+    return prompt_text
 
 
 def _get_chat_response(prompt, token, ai_endpoint, chat_id):
@@ -79,16 +114,18 @@ def _mock_ai(prompt_text):
     return json_mock_data.get(prompt_text[:15], json.dumps({"entity": "some random text"}))
 
 
-def _get_event_template(question: str, prompt: str, notification: str, max_iteration: int = 0):
+def _get_event_template(question: str, prompt: str,  notification: str, function: str, result_data: str, entity, max_iteration: int = 0):
     return {
         "question": question,  # Sets the provided question
         "prompt": prompt,  # Sets the provided prompt
         "notification": notification,
         "answer": "",  # Initially no answer
-        "function": None,  # Placeholder for function
+        "function": function,  # Placeholder for function
         "index": 0,  # Default index
         "iteration": 0,  # Initial iteration count
-        "max_iteration": max_iteration  # Sets the maximum iteration
+        "max_iteration": max_iteration,
+        "data": result_data,
+        "entity": entity,
     }
 
 
@@ -97,15 +134,12 @@ def _save_code_to_file(chat_id, entity_name, data, item):
     return _save_file(chat_id=chat_id, data=data, target_dir=target_dir, item=f'{item}.py')
 
 
-def _save_json_entity_to_file(_event, sub_dir: str, file_name: str, token, ai_endpoint, chat_id) -> str:
+def _save_json_entity_to_file(chat, _event, sub_dir: str, file_name: str, token, ai_endpoint, chat_id) -> str:
     """
     A helper function to handle the extraction, parsing, and saving of a JSON entity.
     """
     entity_name = _event.get("entity").get("entity_name")
-    data = _chat(_event=_event,
-                 token=token,
-                 ai_endpoint=ai_endpoint,
-                 chat_id=chat_id)
+    data = _event["data"]
 
     if isinstance(data, str):
         try:
@@ -128,7 +162,7 @@ def _save_file(chat_id, data, target_dir, item) -> str:
     file_path = os.path.join(target_dir, item)
     logger.info(f"Saving to {file_path}")
     with open(file_path, 'w') as output:
-        output.write(data)
+        output.write(str(data))
     logger.info(f"saved to {file_path}")
     if CLONE_REPO=="true":
         _git_push(chat_id,  [file_path], commit_message=f"saved {item}")
@@ -152,12 +186,20 @@ def _git_push(chat_id, file_paths: list, commit_message: str):
     os.chdir(clone_dir)
     # Create a new branch with the name $chat_id
     subprocess.run(["git", "checkout", str(chat_id)], check=True)
+    try:
+        for file_path in file_paths:
+            subprocess.run(["git", "add", file_path], check=True)
+        # Commit the changes
+        subprocess.run(["git", "commit", "-m", f"{commit_message}: {chat_id}"], check=True)
+        # Push the new branch to the remote repository
+        subprocess.run(["git", "push", "-u", "origin", str(chat_id)], check=True)
+    except Exception as e:
+        logger.error(f"Error during git push: {e}")
+        logger.exception(e)
 
-    for file_path in file_paths:
-        subprocess.run(["git", "add", file_path], check=True)
-
-    # Commit the changes
-    subprocess.run(["git", "commit", "-m", f"{commit_message}: {chat_id}"], check=True)
-
-    # Push the new branch to the remote repository
-    subprocess.run(["git", "push", "-u", "origin", str(chat_id)], check=True)
+def _send_notification(chat, notification_text):
+    stack = chat["chat_flow"]["current_flow"]
+    notification_event = _get_event_template(notification=notification_text, prompt='', max_iteration=0, question='',
+                                             result_data='', function='', entity=None)
+    stack.append(notification_event)
+    return stack
