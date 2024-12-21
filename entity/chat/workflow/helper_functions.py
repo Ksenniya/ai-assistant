@@ -1,3 +1,4 @@
+import glob
 import json
 import logging
 import os
@@ -6,7 +7,7 @@ import subprocess
 import time
 
 from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO
-from common.util.utils import read_file
+from common.util.utils import read_file, get_project_file_name
 from entity.chat.data.mock_data_generator import generate_mock_data
 from logic.init import ai_service
 
@@ -87,11 +88,11 @@ def build_prompt(_event, chat):
 
 def _enrich_prompt_with_context(_event, chat, event_prompt):
     prompt_text = event_prompt.get("text", "")
-    prompt_context = _event.get("context", {})
+    prompt_context = _event.get("context", {}).get("prompt", {})
     if prompt_context:
         # Loop through each item in the context dictionary
         for prompt_context_item, prompt_item_values in prompt_context.items():
-            chat_context = chat['cache']
+            chat_context = chat.get('cache', {})
             # Assuming prompt_item_value is a dictionary with keys to resolve in chat_context
             if isinstance(prompt_item_values, list):
                 for item in prompt_item_values:
@@ -129,9 +130,8 @@ def _get_event_template(question: str, prompt: str,  notification: str, function
     }
 
 
-def _save_code_to_file(chat_id, entity_name, data, item):
-    target_dir = os.path.join('entity', entity_name, item)
-    return _save_file(chat_id=chat_id, data=data, target_dir=target_dir, item=f'{item}.py')
+def _save_code_to_file(chat_id, data, item):
+    return _save_file(chat_id=chat_id, data=data, item=f'{item}.py')
 
 
 def _save_json_entity_to_file(chat, _event, sub_dir: str, file_name: str, token, ai_endpoint, chat_id) -> str:
@@ -146,18 +146,15 @@ def _save_json_entity_to_file(chat, _event, sub_dir: str, file_name: str, token,
             data = json.loads(data)
         except json.JSONDecodeError:
             raise ValueError("The provided entity is a string but is not valid JSON.")
-
-    target_dir = os.path.join('entity', entity_name, sub_dir)
-    _save_file(chat_id=chat_id, data=json.dumps(data), target_dir=target_dir, item=file_name)
+    _save_file(chat_id=chat_id, data=json.dumps(data), item=file_name)
     return data
 
 
-def _save_file(chat_id, data, target_dir, item) -> str:
+def _save_file(chat_id, data, item) -> str:
     """
     Save the workflow to a file inside a specific directory.
     """
-    target_dir = os.path.join(f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}", target_dir)
-    logger.info(f"Saving to {target_dir}")
+    target_dir = os.path.join(f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}")
     os.makedirs(target_dir, exist_ok=True)
     file_path = os.path.join(target_dir, item)
     logger.info(f"Saving to {file_path}")
@@ -203,3 +200,20 @@ def _send_notification(chat, notification_text):
                                              result_data='', function='', entity=None)
     stack.append(notification_event)
     return stack
+
+
+def _build_context_from_project_files(chat, files):
+    contents = []
+    for file_pattern in files:
+        root_path = get_project_file_name(chat["chat_id"], file_pattern)
+        if "*" in root_path or os.path.isdir(root_path):  # Check if it's a wildcard or directory
+            # Use glob to get all files matching the pattern (including files in subdirectories)
+            for file_path in glob.glob(root_path):
+                if os.path.isfile(file_path):  # Ensure it's a file
+                    with open(file_path, "r") as f:
+                        contents.append({file_path: f.read()})
+        else:  # Handle exact paths
+            with open(get_project_file_name(chat["chat_id"], file_pattern), "r") as f:
+                contents.append({file_pattern: f.read()})
+    return contents
+

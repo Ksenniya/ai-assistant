@@ -10,11 +10,15 @@ from quart import Quart, request, jsonify, send_from_directory, websocket
 from quart_cors import cors
 from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX, API_URL
 from common.exception.exceptions import ChatNotFoundException, UnauthorizedAccessException
-from common.util.utils import clean_formatting, generate_uuid, send_get_request
+from common.util.utils import clean_formatting, generate_uuid, send_get_request, git_pull, read_file, \
+    get_project_file_name
 from entity.chat.data.data import app_building_stack
 from logic.logic import process_dialogue_script
 from logic.init import ai_service, cyoda_token, entity_service
 from logic.notifier import clients_queue
+
+PUSH_NOTIFICATION = "push_notification"
+APPROVE = "approved"
 
 logger = logging.getLogger('django')
 
@@ -33,16 +37,6 @@ async def add_cors_headers():
         response.headers['Access-Control-Allow-Credentials'] = 'true'  # Allow credentials
         return response
 
-@app.before_serving
-async def add_cors_headers():
-    @app.after_request
-    async def apply_cors(response):
-        # Set CORS headers for all HTTP requests
-        response.headers['Access-Control-Allow-Origin'] = '*'  # Allow all origins
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'  # Allow these methods
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'  # Allow these headers
-        response.headers['Access-Control-Allow-Credentials'] = 'true'  # Allow credentials
-        return response
 
 @app.errorhandler(UnauthorizedAccessException)
 async def handle_unauthorized_exception(error):
@@ -181,18 +175,39 @@ def _submit_question_helper(chat, question):
     return jsonify({"message": result}), 200
 
 
+def rollback_dialogue_script(technical_id, auth_header, chat):
+    current_flow = chat["chat_flow"]["current_flow"]
+    finished_flow = chat["chat_flow"]["finished_flow"]
+    event = finished_flow.pop()
+    while not event.get("function") or event.get("function").get("name") != "refresh_context":
+        current_flow.append(event)
+    current_flow.append(event)
+    entity_service.update_item(token=auth_header,
+                               entity_model="chat",
+                               entity_version=ENTITY_VERSION,
+                               technical_id=technical_id,
+                               entity=chat,
+                               meta={})
+    asyncio.create_task(process_dialogue_script(auth_header, technical_id))
+    return jsonify({"message": "Answer received"}), 200
+
+
 def _submit_answer_helper(technical_id, answer, auth_header, chat):
     question_queue = chat["questions_queue"]["new_questions"]
     if not question_queue.empty():
-        return jsonify({
-                           "message": "Could you please have a look at a couple of more questions before submitting your answer?"}), 400
+        return jsonify({"message": "Could you please have a look at a couple of more questions before submitting your answer?"}), 400
     if not answer:
         return jsonify({"message": "Invalid entity"}), 400
     stack = chat["chat_flow"]["current_flow"]
     if not stack:
         return jsonify({"message": "Finished"}), 200
     next_event = stack[-1]
-    next_event["answer"] = clean_formatting(answer)
+    if answer == PUSH_NOTIFICATION:
+        next_event["answer"] = clean_formatting(read_file(get_project_file_name(chat['chat_id'], next_event["file_name"])))
+    elif answer == APPROVE:
+        next_event["max_iteration"] = -1
+    else:
+        next_event["answer"] = clean_formatting(answer)
     entity_service.update_item(token=auth_header,
                                entity_model="chat",
                                entity_version=ENTITY_VERSION,
@@ -349,6 +364,31 @@ async def submit_question(technical_id):
     return _submit_question_helper(chat, question)
 
 
+@app.route(API_PREFIX + '/chats/<technical_id>/push-notify', methods=['POST'])
+@auth_required
+async def push_notify(technical_id):
+    auth_header = request.headers.get('Authorization')
+    chat = _get_chat_for_user(auth_header, technical_id)
+    git_pull(chat['chat_id'])
+    return _submit_answer_helper(technical_id, PUSH_NOTIFICATION, auth_header, chat)
+
+
+@app.route(API_PREFIX + '/chats/<technical_id>/approve', methods=['POST'])
+@auth_required
+async def approve(technical_id):
+    auth_header = request.headers.get('Authorization')
+    chat = _get_chat_for_user(auth_header, technical_id)
+    return _submit_answer_helper(technical_id, APPROVE, auth_header, chat)
+
+
+@app.route(API_PREFIX + '/chats/<technical_id>/rollback', methods=['POST'])
+@auth_required
+async def rollback(technical_id):
+    auth_header = request.headers.get('Authorization')
+    chat = _get_chat_for_user(auth_header, technical_id)
+    return rollback_dialogue_script(technical_id, auth_header, chat)
+
+
 @app.route(API_PREFIX + '/chats/<technical_id>/text-answers', methods=['POST'])
 @auth_required
 async def submit_answer_text(technical_id):
@@ -375,4 +415,4 @@ async def submit_answer(technical_id):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)

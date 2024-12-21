@@ -309,6 +309,100 @@ function formatTextToMaxLength(text, maxLength) {
         }
     }
 
+    // Submit a text answer to the main thread
+async function notifyPush() {
+    if (!technical_id) {
+        alert('Chat session not initialized.');
+        return;
+    }
+    showLoader();
+    try {
+        const response = await fetch(`${baseApiUrl}/api/v1/chats/${technical_id}/push-notify`, {
+            method: 'POST',  // Changed to POST
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwtToken}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorMessage = await response.text();
+            throw new Error(`Failed to submit answer: ${errorMessage}`);
+        }
+
+        // Handle the successful response if needed (e.g., log it or do something with it)
+        console.log('Push notification sent successfully');
+    } catch (error) {
+        console.error('Error:', error);
+        alert(error.message);
+    } finally {
+        hideLoader();  // Ensure the loader is hidden after the request
+    }
+}
+
+
+    // Submit a text answer to the main thread
+async function approve() {
+    if (!technical_id) {
+        alert('Chat session not initialized.');
+        return;
+    }
+    showLoader();
+    try {
+        const response = await fetch(`${baseApiUrl}/api/v1/chats/${technical_id}/approve`, {
+            method: 'POST',  // Changed to POST
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwtToken}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorMessage = await response.text();
+            throw new Error(`Failed to submit answer: ${errorMessage}`);
+        }
+
+        // Handle the successful response if needed (e.g., log it or do something with it)
+        console.log('Push notification sent successfully');
+    } catch (error) {
+        console.error('Error:', error);
+        alert(error.message);
+    } finally {
+        hideLoader();  // Ensure the loader is hidden after the request
+    }
+}
+
+    // Submit a text answer to the main thread
+async function rollback() {
+    if (!technical_id) {
+        alert('Chat session not initialized.');
+        return;
+    }
+    showLoader();
+    try {
+        const response = await fetch(`${baseApiUrl}/api/v1/chats/${technical_id}/rollback`, {
+            method: 'POST',  // Changed to POST
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwtToken}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorMessage = await response.text();
+            throw new Error(`Failed to submit answer: ${errorMessage}`);
+        }
+
+        // Handle the successful response if needed (e.g., log it or do something with it)
+        console.log('Push notification sent successfully');
+    } catch (error) {
+        console.error('Error:', error);
+        alert(error.message);
+    } finally {
+        hideLoader();  // Ensure the loader is hidden after the request
+    }
+}
+
     // Ask a question from canvas (highlighted text)
     async function askQuestion(question) {
         if (!technical_id) {
@@ -368,6 +462,29 @@ function formatTextToMaxLength(text, maxLength) {
                 submitAnswer(selectedText);
             }
         }
+    });
+
+
+    // Ctrl+Alt+A = Submit selected text as answer
+    document.addEventListener('keydown', function (event) {
+        if (event.ctrlKey && event.altKey && event.key.toLowerCase() === 'p') {
+                notifyPush();
+            }
+    });
+
+        // Ctrl+Alt+A = Submit selected text as answer
+    document.addEventListener('keydown', function (event) {
+        if (event.ctrlKey && event.altKey && event.key.toLowerCase() === 'v') {
+                approve();
+            }
+    });
+
+
+            // Ctrl+Alt+A = Submit selected text as answer
+    document.addEventListener('keydown', function (event) {
+        if (event.ctrlKey && event.altKey && event.key.toLowerCase() === 'r') {
+                rollback();
+            }
     });
 
     // Ctrl+Alt+L = Format selected text as JSON and append to editor

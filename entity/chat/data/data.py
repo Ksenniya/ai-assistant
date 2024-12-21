@@ -134,21 +134,8 @@ app_building_stack = [{"question": "Finished",
                       {"question": None,
                        "prompt": None,
                        "answer": None,
-                       "function": {"name": "add_design_stack",
-                                    "prompt": {
-                                        "text": "Return the final version of Cyoda design, which was approved by user. Do not add anything else.",
-                                        "schema": {
-                                            "$schema": "http://json-schema.org/draft-07/schema#",
-                                            "title": "Cyoda design",
-                                            "type": "object",
-                                            "properties": {
-                                                "entities": ENTITIES_DESIGN
-                                            },
-                                            "required": [
-                                                "entities"
-                                            ]
-                                        }
-                                    }},
+                       "function": {"name": "add_design_stack"},
+                       "file_name": "entity/app_design.json",
                        "iteration": 0,
                        "max_iteration": 0},
                       # please wait
@@ -157,6 +144,7 @@ app_building_stack = [{"question": "Finished",
                        "answer": None,
                        "function": None,
                        "iteration": 0,
+                       "file_name": "entity/app_design.json",
                        "max_iteration": 0
                        },
                       # Improve the Cyoda design based on the user answer if the user wants any improvements
@@ -183,6 +171,7 @@ app_building_stack = [{"question": "Finished",
                        },
                        "answer": None,
                        "function": None,
+                       "file_name": "entity/app_design.json",
                        "iteration": 0,
                        "max_iteration": MAX_ITERATION},
                       # Would you like to change anything in the design?
@@ -191,6 +180,7 @@ app_building_stack = [{"question": "Finished",
                        "answer": None,
                        "function": None,
                        "iteration": 0,
+                       "file_name": "entity/app_design.json",
                        "max_iteration": 0},
                       # Generate Cyoda design, based on the requirement
                       {"question": None,
@@ -210,6 +200,7 @@ app_building_stack = [{"question": "Finished",
                            }
                        },
                        "answer": None,
+                       "file_name": "entity/app_design.json",
                        "function": None,
                        "iteration": 0,
                        "max_iteration": 0},
@@ -219,6 +210,7 @@ app_building_stack = [{"question": "Finished",
                        "answer": None,
                        "function": None,
                        "iteration": 0,
+                       "file_name": "entity/app_design.json",
                        "max_iteration": 0},
                       # Is this requirement sufficient?
                       {"question": None,
@@ -248,6 +240,7 @@ app_building_stack = [{"question": "Finished",
                                ]
                            }
                        },
+                       "file_name": "entity/app_design.json",
                        "answer": None,
                        "function": None,
                        "iteration": 0,
@@ -259,12 +252,14 @@ app_building_stack = [{"question": "Finished",
                           "answer": None,
                           "function": None,
                           "iteration": 0,
+                          "file_name": "entity/app_design.json",
                           "max_iteration": 0},
                       # add_instruction
                       {"question": None,
                        "prompt": None,
                        "answer": None,
                        "function": {"name": "add_instruction"},
+                       "file_name": "instruction.txt",
                        "iteration": 0,
                        "max_iteration": 0},
                       # init_chats
@@ -288,6 +283,7 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                 "answer": None,
                                 "function": None,
                                 "iteration": 0,
+                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
                                 "max_iteration": 0
                                 },
                                # Improve the entity model
@@ -321,6 +317,7 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                 "entity": entity,
                                 "index": 0,
                                 "iteration": 0,
+                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
                                 "max_iteration": MAX_ITERATION},
                                # Would you like to edit the model
                                {"question": "Would you like to edit the model?",
@@ -329,6 +326,7 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                 "function": None,
                                 "index": 0,
                                 "iteration": 0,
+                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
                                 "max_iteration": 0},
                                # Generate entity entity (entity example json) based on the user input
                                {"question": None,
@@ -355,6 +353,7 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                 "entity": entity,
                                 "index": 0,
                                 "iteration": 0,
+                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
                                 "max_iteration": 0},
                                # Would you like to specify the entity
                                {
@@ -364,6 +363,17 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                    "function": None,
                                    "index": 0,
                                    "iteration": 0,
+                                   "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
+                                   "max_iteration": 0},
+                               {
+                                   "question": None,
+                                   "prompt": None,
+                                   "answer": None,
+                                   "function": {"name": "refresh_context"},
+                                   "context": {
+                                       "files": [f"entity/app_design.json"],
+                                   },
+                                   "iteration": 0,
                                    "max_iteration": 0},
                                ]
 # save_processors_code_to_file
@@ -372,7 +382,8 @@ workflow_stack = lambda entity: [{"notification": "Generating Cyoda design: plea
                                   "answer": None,
                                   "function": None,
                                   "iteration": 0,
-                                  "max_iteration": 0
+                                  "max_iteration": 0,
+                                  "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.json",
                                   },
                                  # ========================================================================================================
                                  {"question": None,
@@ -400,6 +411,7 @@ workflow_stack = lambda entity: [{"notification": "Generating Cyoda design: plea
                                   "entity": entity,
                                   "index": 0,
                                   "iteration": 0,
+                                  "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.json",
                                   "max_iteration": MAX_ITERATION},
                                  # Would you like to add any changes to entity workflow
                                  {"question": f"Would you like to add any changes to entity workflow {entity}",
@@ -408,14 +420,27 @@ workflow_stack = lambda entity: [{"notification": "Generating Cyoda design: plea
                                   "function": None,
                                   "index": 0,
                                   "iteration": 0,
-                                  "max_iteration": 0}]
+                                  "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.json",
+                                  "max_iteration": 0},
+                                 {
+                                     "question": None,
+                                     "prompt": None,
+                                     "answer": None,
+                                     "function": {"name": "refresh_context"},
+                                     "context": {
+                                         "files": [f"entity/app_design.json"],
+                                     },
+                                     "iteration": 0,
+                                     "max_iteration": 0},
+                                 ]
 
 processors_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
                                     "prompt": "",
                                     "answer": None,
                                     "function": None,
                                     "iteration": 0,
-                                    "max_iteration": 0
+                                    "max_iteration": 0,
+                                    "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py"
                                     },
                                    {"question": None,
                                     "prompt": {
@@ -446,9 +471,11 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                     "entity": entity,
                                     "index": 0,
                                     "iteration": 0,
+                                    "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py",
                                     "max_iteration": MAX_ITERATION},
                                    # Would you like to edit the model
                                    {"question": "Would you like to edit the code?",
+                                    "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py",
                                     "prompt": None,
                                     "answer": None,
                                     "function": None,
@@ -488,7 +515,8 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                     "entity": entity,
                                     "index": 0,
                                     "iteration": 0,
-                                    "context": {"code": ["code"]},
+                                    "context": {"prompt": {"code": ["code"]}},
+                                    "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py",
                                     "max_iteration": MAX_ITERATION
                                     },
                                    # Would you like to specify any details for generating processors
@@ -499,7 +527,18 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                        "function": None,
                                        "index": 0,
                                        "iteration": 0,
-                                       "max_iteration": 0}
+                                       "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py",
+                                       "max_iteration": 0},
+                                   {
+                                       "question": None,
+                                       "prompt": None,
+                                       "answer": None,
+                                       "function": {"name": "refresh_context"},
+                                       "context": {
+                                           "files": ["entity/*"],
+                                       },
+                                       "iteration": 0,
+                                       "max_iteration": 0},
                                    ]
 
 scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
@@ -507,6 +546,7 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                    "answer": None,
                                    "function": None,
                                    "iteration": 0,
+                                   "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                    "max_iteration": 0
                                    },
                                   # ========================================================================================================
@@ -538,6 +578,7 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                    "entity": entity,
                                    "index": 0,
                                    "iteration": 0,
+                                   "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                    "max_iteration": MAX_ITERATION},
                                   # Would you like to edit the model
                                   {"question": "Would you like to edit the code?",
@@ -546,6 +587,7 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                    "function": None,
                                    "index": 0,
                                    "iteration": 0,
+                                   "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                    "max_iteration": 0},
                                   # ========================================================================================================
                                   # Generate the processor functions
@@ -572,7 +614,8 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                    "entity": entity,
                                    "index": 0,
                                    "iteration": 0,
-                                   "context": {"data": [entity.get("entity_name"), "data"]},
+                                   "context": {"prompt": {"data": [entity.get("entity_name"), "data"]}},
+                                   "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                    "max_iteration": MAX_ITERATION
                                    },
                                   {
@@ -582,7 +625,19 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                       "function": None,
                                       "index": 0,
                                       "iteration": 0,
-                                      "max_iteration": 0}
+                                      "file_name": f"entity/{entity.get("entity_name")}/logic.py",
+                                      "max_iteration": 0},
+                                  {
+                                      "question": None,
+                                      "prompt": None,
+                                      "answer": None,
+                                      "function": {"name": "refresh_context"},
+                                      "context": {
+                                          "files": [f"entity/app_design.json",
+                                                    f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
+                                      },
+                                      "iteration": 0,
+                                      "max_iteration": 0},
                                   ]
 
 form_submission_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
@@ -590,6 +645,7 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                          "answer": None,
                                          "function": None,
                                          "iteration": 0,
+                                         "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                          "max_iteration": 0
                                          },
                                         # ========================================================================================================
@@ -622,6 +678,7 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                          "entity": entity,
                                          "index": 0,
                                          "iteration": 0,
+                                         "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                          "max_iteration": MAX_ITERATION},
                                         # Would you like to edit the model
                                         {"question": "Would you like to edit the code?",
@@ -630,6 +687,7 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                          "function": None,
                                          "index": 0,
                                          "iteration": 0,
+                                         "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                          "max_iteration": 0},
                                         # ========================================================================================================
                                         # Generate the processor functions
@@ -656,7 +714,8 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                          "entity": entity,
                                          "index": 0,
                                          "iteration": 0,
-                                         "context": {"data": [entity.get("entity_name"), "data"]},
+                                         "context": {"prompt": {"data": [entity.get("entity_name"), "data"]}},
+                                         "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                          "max_iteration": MAX_ITERATION
                                          },
                                         {
@@ -666,7 +725,19 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                             "function": None,
                                             "index": 0,
                                             "iteration": 0,
-                                            "max_iteration": 0}
+                                            "file_name": f"entity/{entity.get("entity_name")}/logic.py",
+                                            "max_iteration": 0},
+                                        {
+                                            "question": None,
+                                            "prompt": None,
+                                            "answer": None,
+                                            "function": {"name": "refresh_context"},
+                                            "context": {
+                                                "files": [f"entity/app_design.json",
+                                                          f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
+                                            },
+                                            "iteration": 0,
+                                            "max_iteration": 0},
                                         ]
 
 file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
@@ -674,6 +745,7 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "answer": None,
                                      "function": None,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": 0
                                      },
                                     # ========================================================================================================
@@ -706,6 +778,7 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "entity": entity,
                                      "index": 0,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": MAX_ITERATION},
                                     # Would you like to edit the model
                                     {"question": "Would you like to edit the code?",
@@ -714,6 +787,7 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "function": None,
                                      "index": 0,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": 0},
                                     # ========================================================================================================
                                     # Generate the processor functions
@@ -741,7 +815,8 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "entity": entity,
                                      "index": 0,
                                      "iteration": 0,
-                                     "context": {"data": [entity.get("entity_name"), "data"]},
+                                     "context": {"prompt": {"data": [entity.get("entity_name"), "data"]}},
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": MAX_ITERATION
                                      },
                                     {
@@ -751,7 +826,19 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                         "function": None,
                                         "index": 0,
                                         "iteration": 0,
-                                        "max_iteration": 0}
+                                        "file_name": f"entity/{entity.get("entity_name")}/logic.py",
+                                        "max_iteration": 0},
+                                    {
+                                        "question": None,
+                                        "prompt": None,
+                                        "answer": None,
+                                        "function": {"name": "refresh_context"},
+                                        "context": {
+                                            "files": [f"entity/app_design.json",
+                                                      f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
+                                        },
+                                        "iteration": 0,
+                                        "max_iteration": 0},
                                     ]
 
 api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
@@ -759,6 +846,7 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "answer": None,
                                      "function": None,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": 0
                                      },
                                     # ========================================================================================================
@@ -791,6 +879,7 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "entity": entity,
                                      "index": 0,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": MAX_ITERATION},
                                     # Would you like to edit the model
                                     {"question": "Would you like to edit the code?",
@@ -799,6 +888,7 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "function": None,
                                      "index": 0,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": 0},
                                     # ========================================================================================================
                                     # Generate the processor functions
@@ -826,7 +916,8 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "entity": entity,
                                      "index": 0,
                                      "iteration": 0,
-                                     "context": {"data": [entity.get("entity_name"), "data"]},
+                                     "context": {"prompt": {"data": [entity.get("entity_name"), "data"]}},
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": MAX_ITERATION
                                      },
                                     {
@@ -836,7 +927,19 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                         "function": None,
                                         "index": 0,
                                         "iteration": 0,
-                                        "max_iteration": 0}
+                                        "file_name": f"entity/{entity.get("entity_name")}/logic.py",
+                                        "max_iteration": 0},
+                                    {
+                                        "question": None,
+                                        "prompt": None,
+                                        "answer": None,
+                                        "function": {"name": "refresh_context"},
+                                        "context": {
+                                            "files": [f"entity/app_design.json",
+                                                      f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
+                                        },
+                                        "iteration": 0,
+                                        "max_iteration": 0},
                                     ]
 
 external_datasource_stack = lambda entity: [{"question": None,
@@ -845,12 +948,14 @@ external_datasource_stack = lambda entity: [{"question": None,
                                              "entity": entity,
                                              "function": {"name": "save_raw_data_to_entity_file"},
                                              "iteration": 0,
+                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
                                              "max_iteration": 0},
                                             {"question": f"Please specify the schema for {entity.get("entity_name")}.",
                                              "prompt": None,
                                              "answer": None,
                                              "function": None,
                                              "iteration": 0,
+                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
                                              "max_iteration": 0},
                                             # please wait
                                             {"notification": "Generating Cyoda design: please wait",
@@ -858,6 +963,7 @@ external_datasource_stack = lambda entity: [{"question": None,
                                              "answer": None,
                                              "function": None,
                                              "iteration": 0,
+                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
                                              "max_iteration": 0
                                              },
                                             {"question": None,
@@ -890,6 +996,7 @@ external_datasource_stack = lambda entity: [{"question": None,
                                              "entity": entity,
                                              "index": 0,
                                              "iteration": 0,
+                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
                                              "max_iteration": MAX_ITERATION
                                              },
                                             {"question": None,
@@ -921,6 +1028,7 @@ external_datasource_stack = lambda entity: [{"question": None,
                                              "entity": entity,
                                              "index": 0,
                                              "iteration": 0,
+                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
                                              "max_iteration": MAX_ITERATION
                                              },
                                             {
@@ -930,6 +1038,16 @@ external_datasource_stack = lambda entity: [{"question": None,
                                                 "function": None,
                                                 "index": 0,
                                                 "iteration": 0,
-                                                "max_iteration": 0}
-
+                                                "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
+                                                "max_iteration": 0},
+                                            {
+                                                "question": None,
+                                                "prompt": None,
+                                                "answer": None,
+                                                "function": {"name": "refresh_context"},
+                                                "context": {
+                                                    "files": [],
+                                                },
+                                                "iteration": 0,
+                                                "max_iteration": 0},
                                             ]
