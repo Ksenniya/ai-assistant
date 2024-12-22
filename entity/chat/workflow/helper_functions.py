@@ -5,9 +5,12 @@ import os
 import shutil
 import subprocess
 import time
+from uuid import UUID
+
+import black
 
 from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO
-from common.util.utils import read_file, get_project_file_name
+from common.util.utils import read_file, get_project_file_name, git_pull
 from entity.chat.data.mock_data_generator import generate_mock_data
 from logic.init import ai_service
 
@@ -115,39 +118,21 @@ def _mock_ai(prompt_text):
     return json_mock_data.get(prompt_text[:15], json.dumps({"entity": "some random text"}))
 
 
-def _get_event_template(question: str, prompt: str,  notification: str, function: str, result_data: str, entity, max_iteration: int = 0):
+def _get_event_template(question, notification, answer, prompt, event):
     return {
         "question": question,  # Sets the provided question
         "prompt": prompt,  # Sets the provided prompt
         "notification": notification,
-        "answer": "",  # Initially no answer
-        "function": function,  # Placeholder for function
-        "index": 0,  # Default index
-        "iteration": 0,  # Initial iteration count
-        "max_iteration": max_iteration,
-        "data": result_data,
-        "entity": entity,
+        "answer": answer,  # Initially no answer
+        "function": event.get('prompt', {}).get('function', {}),  # Placeholder for function
+        "index": event.get('index', 0),  # Default index
+        "iteration": event.get('iteration', 0),  # Initial iteration count
+        "max_iteration": event.get('max_iteration', 0),
+        "data": event.get('data', {}),
+        "entity": event.get('entity', {}),
+        "file_name": event.get('file_name', ''),
+        "context": event.get('context', {})
     }
-
-
-def _save_code_to_file(chat_id, data, item):
-    return _save_file(chat_id=chat_id, data=data, item=f'{item}.py')
-
-
-def _save_json_entity_to_file(chat, _event, sub_dir: str, file_name: str, token, ai_endpoint, chat_id) -> str:
-    """
-    A helper function to handle the extraction, parsing, and saving of a JSON entity.
-    """
-    entity_name = _event.get("entity").get("entity_name")
-    data = _event["data"]
-
-    if isinstance(data, str):
-        try:
-            data = json.loads(data)
-        except json.JSONDecodeError:
-            raise ValueError("The provided entity is a string but is not valid JSON.")
-    _save_file(chat_id=chat_id, data=json.dumps(data), item=file_name)
-    return data
 
 
 def _save_file(chat_id, data, item) -> str:
@@ -155,17 +140,86 @@ def _save_file(chat_id, data, item) -> str:
     Save the workflow to a file inside a specific directory.
     """
     target_dir = os.path.join(f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}")
-    os.makedirs(target_dir, exist_ok=True)
     file_path = os.path.join(target_dir, item)
     logger.info(f"Saving to {file_path}")
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    # Process the data and get the output to save
+    output_data = _process_data(data)
+    # Write the processed output data to the file
     with open(file_path, 'w') as output:
-        output.write(str(data))
+        output.write(output_data)
     logger.info(f"saved to {file_path}")
+    # Define the path for __init__.py in the target directory
+    init_file_target_dir = os.path.dirname(file_path)
+    init_file = os.path.join(init_file_target_dir, "__init__.py")
+    file_paths_to_commit = [file_path]
+    # Check if __init__.py exists in the target directory
+    if not os.path.exists(init_file):
+        # If __init__.py does not exist, create it (empty __init__.py file)
+        with open(init_file, 'w') as f:
+            pass  # Just create an empty __init__.py file
+
+        logger.info(f"Created {init_file}")
+        file_paths_to_commit.append(init_file)
     if CLONE_REPO=="true":
-        _git_push(chat_id,  [file_path], commit_message=f"saved {item}")
+        git_pull(chat_id=chat_id)
+        _git_push(chat_id,  file_paths_to_commit, commit_message=f"saved {item}")
     logger.info(f"pushed to git")
 
     return str(file_path)
+
+
+def _format_code(code):
+    try:
+        # Format the code using black's formatting
+        formatted_code = black.format_str(code, mode=black.Mode())
+        return formatted_code
+    except Exception as e:
+        print(f"Error formatting code: {e}")
+        return code  # Return the original code if formatting fails
+
+def test_format_code():
+    # Test code to format
+    test_code = """"
+def hello_world():
+    print('Hello World!')
+    for i in range(5):
+        print(i)
+    """
+
+    # Format the code
+    formatted = _format_code(test_code)
+
+    # Print original and formatted code
+    print("Original code:")
+    print(test_code)
+    print("\nFormatted code:")
+    print(formatted)
+
+
+# Function to process the data
+def _process_data(data):
+    # Try to parse the string if it's a string
+    if isinstance(data, str):
+        try:
+            # Try to parse as JSON
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            # If it's not valid JSON, treat it as plain string
+            return data
+
+    # If it's a dictionary or list, handle it as JSON
+    if isinstance(data, dict) and 'code' in data:
+        # If 'code' exists, format the code
+        return _format_code(data['code'])
+
+    if not isinstance(data, dict) and not isinstance(data, list):
+        return str(data)
+
+    # Otherwise, return JSON as a formatted string
+    return json.dumps(data, indent=4)
+
+
 
 
 def _export_workflow_to_cyoda_ai(token, chat_id, data):
@@ -194,26 +248,57 @@ def _git_push(chat_id, file_paths: list, commit_message: str):
         logger.error(f"Error during git push: {e}")
         logger.exception(e)
 
-def _send_notification(chat, notification_text):
+def _send_notification(chat, event, notification_text):
     stack = chat["chat_flow"]["current_flow"]
-    notification_event = _get_event_template(notification=notification_text, prompt='', max_iteration=0, question='',
-                                             result_data='', function='', entity=None)
+    notification_event = _get_event_template(notification=notification_text, event = event, question='', answer='', prompt={})
     stack.append(notification_event)
     return stack
 
 
-def _build_context_from_project_files(chat, files):
+def _build_context_from_project_files(chat, files, excluded_files):
     contents = []
     for file_pattern in files:
         root_path = get_project_file_name(chat["chat_id"], file_pattern)
-        if "*" in root_path or os.path.isdir(root_path):  # Check if it's a wildcard or directory
+        if "**" in root_path or os.path.isdir(root_path):
             # Use glob to get all files matching the pattern (including files in subdirectories)
-            for file_path in glob.glob(root_path):
-                if os.path.isfile(file_path):  # Ensure it's a file
+            for file_path in glob.glob(root_path, recursive=True):  # recursive=True to include files in subdirectories
+                if os.path.isfile(file_path) and not any(file_path.endswith(excluded) for excluded in excluded_files):
                     with open(file_path, "r") as f:
                         contents.append({file_path: f.read()})
-        else:  # Handle exact paths
-            with open(get_project_file_name(chat["chat_id"], file_pattern), "r") as f:
-                contents.append({file_pattern: f.read()})
+        else:
+            file_path = get_project_file_name(chat["chat_id"], file_pattern)
+            # Check if the file exists before trying to open it
+            if os.path.isfile(file_path):
+                with open(file_path, "r") as f:
+                    contents.append({file_pattern: f.read()})
     return contents
 
+
+def main():
+    # Test parameters
+    chat = {"chat_id": "8bd9a020-c073-11ef-a0cd-40c2ba0ac9eb"}
+    files = ["entity/**"]
+    excluded_files = ["entity/workflow.py"]
+
+    # Call function with test parameters
+    contents = _build_context_from_project_files(chat, files, excluded_files)
+
+    # Print results
+    print("Files found:")
+    for content in contents:
+        for file_path, file_content in content.items():
+            print(f"\nFile: {file_path}")
+            print("Content preview (first 100 chars):")
+            print(file_content[:100])
+
+
+if __name__ == "__main__":
+    main()
+
+
+def _save_result_to_file( chat, _event, data):
+    file_name = _event.get("file_name")
+    if file_name:
+        _save_file(chat_id=chat["chat_id"], data=json.dumps(data), item=file_name)
+        notification_text = f"Pushing changes for {file_name}"
+        _send_notification(chat=chat, event=_event, notification_text=notification_text)
