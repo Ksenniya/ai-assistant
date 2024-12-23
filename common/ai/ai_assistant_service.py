@@ -15,6 +15,8 @@ class AiAssistantService:
         pass
 
     def init_chat(self, token, chat_id):
+        if MOCK_AI=="true":
+            return {"success": True}
         data = json.dumps({"chat_id": f"{chat_id}"})
         endpoints = [API_V_CYODA_, API_V_WORKFLOWS_, API_V_CONNECTIONS_, API_V_RANDOM_]
         for endpoint in endpoints:

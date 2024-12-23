@@ -3,7 +3,7 @@ from typing import Dict, Any
 
 from common.config.config import CYODA_AI_API, ENTITY_VERSION
 from entity.workflow import dispatch_function
-from entity.chat.workflow.helper_functions import _get_event_template, _chat
+from entity.chat.workflow.helper_functions import _get_event_template, _chat, _save_result_to_file
 from logic.init import cyoda_token, entity_service
 from logic.notifier import clients_queue
 
@@ -28,23 +28,30 @@ def process_answer(_event: Dict[str, Any], chat) -> None:
     """
     Process an answer event by interacting with the chat service and managing the event stack.
     """
-    result = _chat(chat=chat, _event=_event, token=cyoda_token, ai_endpoint=_event.get("prompt", {}).get("api", CYODA_AI_API),
-                   chat_id=chat["chat_id"])
-    question_event = _get_event_template(question=result, prompt='', max_iteration=0, notification='', result_data = '', function='', entity = None)
     stack = chat["chat_flow"]["current_flow"]
-    if repeat_iteration(_event, result):
-        _event["iteration"] += 1
-        stack.append(_event)
-        stack.append({QUESTION: QUESTION_OR_VALIDATE})
-        stack.append(question_event)
+    if _event.get("iteration", 0) > _event.get("max_iteration", 0):
+        stack.append({NOTIFICATION: "Finishing iteration"})
+        return
     else:
-        notification_event = _get_event_template(notification=result, prompt='', max_iteration=0, question='', result_data = '', function='', entity = None)
-        stack.append(notification_event)
-        stack.append({NOTIFICATION: "Finishing iteration with result: "})
-    if _event.get("prompt", {}).get("function", ''):
-        function_event = _get_event_template(question='',  prompt='', max_iteration=0, notification='', result_data = result, function=_event.get("prompt", {}).get("function", ''), entity = _event.get("entity", {}))
-        dispatch_function(function_event, chat)
+        result = _chat(chat=chat, _event=_event, token=cyoda_token,
+                       ai_endpoint=_event.get("prompt", {}).get("api", CYODA_AI_API),
+                       chat_id=chat["chat_id"])
 
+        question_event = _get_event_template(question=result, event=_event, notification='', answer='', prompt={})
+
+        if repeat_iteration(_event, result):
+            _event["iteration"] += 1
+            stack.append(_event)
+            stack.append({QUESTION: QUESTION_OR_VALIDATE})
+            stack.append(question_event)
+        else:
+            notification_event = _get_event_template(notification=result, event=_event, question='', answer='', prompt={})
+            stack.append(notification_event)
+            stack.append({NOTIFICATION: "Finishing iteration with result: "})
+        if _event.get("prompt", {}).get("function", ''):
+            function_event = _get_event_template(event=_event, notification='', answer='', prompt={}, question='')
+            dispatch_function(function_event, chat)
+        _save_result_to_file(chat=chat, _event=_event, data=result)
 
 
 def repeat_iteration(_event, result):

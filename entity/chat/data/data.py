@@ -70,12 +70,8 @@ ENTITY_WORKFLOW = {
                 },
                 "required": [
                     "name",
-                    "description",
                     "start_state",
-                    "start_state_description",
                     "end_state",
-                    "end_state_description",
-                    "criteria",
                     "process"
                 ]
             }
@@ -124,7 +120,7 @@ ENTITIES_DESIGN = {
 
 # Finished
 app_building_stack = [{"question": "Finished",
-                       "prompt": None,
+                       "prompt": {},
                        "answer": None,
                        "function": None,
                        "index": 2,
@@ -132,38 +128,25 @@ app_building_stack = [{"question": "Finished",
                        "max_iteration": 0},
                       # add_design_stack
                       {"question": None,
-                       "prompt": None,
+                       "prompt": {},
                        "answer": None,
-                       "function": {"name": "add_design_stack",
-                                    "prompt": {
-                                        "text": "Return the final version of Cyoda design, which was approved by user. Do not add anything else.",
-                                        "schema": {
-                                            "$schema": "http://json-schema.org/draft-07/schema#",
-                                            "title": "Cyoda design",
-                                            "type": "object",
-                                            "properties": {
-                                                "entities": ENTITIES_DESIGN
-                                            },
-                                            "required": [
-                                                "entities"
-                                            ]
-                                        }
-                                    }},
+                       "function": {"name": "add_design_stack"},
+                       "file_name": "entity/app_design.json",
                        "iteration": 0,
                        "max_iteration": 0},
                       # please wait
                       {"notification": "Generating Cyoda design: please wait",
-                       "prompt": "",
+                       "prompt": {},
                        "answer": None,
                        "function": None,
                        "iteration": 0,
+                       "file_name": "entity/app_design.json",
                        "max_iteration": 0
                        },
                       # Improve the Cyoda design based on the user answer if the user wants any improvements
                       {"question": None,
                        "prompt": {
                            "text": "Improve the Cyoda design based on the user answer if the user wants any improvements",
-                           "function": {"name": "save_design_stack"},
                            "schema": {
                                "$schema": "http://json-schema.org/draft-07/schema#",
                                "title": "Improved Cyoda design",
@@ -183,20 +166,21 @@ app_building_stack = [{"question": "Finished",
                        },
                        "answer": None,
                        "function": None,
+                       "file_name": "entity/app_design.json",
                        "iteration": 0,
                        "max_iteration": MAX_ITERATION},
                       # Would you like to change anything in the design?
                       {"question": "Would you like to change anything in the design?",
-                       "prompt": None,
+                       "prompt": {},
                        "answer": None,
                        "function": None,
                        "iteration": 0,
+                       "file_name": "entity/app_design.json",
                        "max_iteration": 0},
                       # Generate Cyoda design, based on the requirement
                       {"question": None,
                        "prompt": {
                            "text": "Generate Cyoda design, based on the requirement. Do not forget to explicitly add the entities that you add in the workflow processors, and use only lowercase underscore for namings. Add workflow only where necessary. If the entity is saved in the workflow of another entity (e.g. JOB) then its source will be ENTITY_EVENT.",
-                           "function": {"name": "save_design_stack"},
                            "schema": {
                                "$schema": "http://json-schema.org/draft-07/schema#",
                                "title": "Cyoda design",
@@ -210,21 +194,22 @@ app_building_stack = [{"question": "Finished",
                            }
                        },
                        "answer": None,
+                       "file_name": "entity/app_design.json",
                        "function": None,
                        "iteration": 0,
                        "max_iteration": 0},
                       # please wait
                       {"notification": "Generating Cyoda design: please wait",
-                       "prompt": "",
+                       "prompt": {},
                        "answer": None,
                        "function": None,
                        "iteration": 0,
+                       "file_name": "entity/app_design.json",
                        "max_iteration": 0},
                       # Is this requirement sufficient?
                       {"question": None,
                        "prompt": {
                            "text": "Is this requirement sufficient?",
-                           "function": {"name": "save_design_stack"},
                            "schema": {
                                "$schema": "http://json-schema.org/draft-07/schema#",
                                "title": "Answer schema",
@@ -248,6 +233,7 @@ app_building_stack = [{"question": "Finished",
                                ]
                            }
                        },
+                       "file_name": "entity/app_design.json",
                        "answer": None,
                        "function": None,
                        "iteration": 0,
@@ -255,46 +241,48 @@ app_building_stack = [{"question": "Finished",
                       # What application would you like to build
                       {
                           "question": "Hello! What application would you like to build? Could you, please, share your ideas?",
-                          "prompt": None,
+                          "prompt": {},
                           "answer": None,
                           "function": None,
                           "iteration": 0,
+                          "file_name": "entity/app_design.json",
                           "max_iteration": 0},
                       # add_instruction
                       {"question": None,
-                       "prompt": None,
+                       "prompt": {},
                        "answer": None,
                        "function": {"name": "add_instruction"},
+                       "file_name": "instruction.txt",
                        "iteration": 0,
                        "max_iteration": 0},
                       # init_chats
                       {"question": None,
-                       "prompt": None,
+                       "prompt": {},
                        "answer": None,
                        "function": {"name": "init_chats"},
                        "iteration": 0,
                        "max_iteration": 0},
                       # clone_repo
                       {"question": None,
-                       "prompt": None,
+                       "prompt": {},
                        "answer": None,
                        "function": {"name": "clone_repo"},
                        "iteration": 0,
                        "max_iteration": 0}
                       ]
-# save_entity_to_file
+
 entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
-                                "prompt": "",
+                                "prompt": {},
                                 "answer": None,
                                 "function": None,
                                 "iteration": 0,
+                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
                                 "max_iteration": 0
                                 },
                                # Improve the entity model
                                {"question": None,
                                 "prompt": {
                                     "text": f"Improve the data model for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. User says: ",
-                                    "function": {"name": "save_entity_to_file"},
                                     "schema": {
                                         "$schema": "http://json-schema.org/draft-07/schema#",
                                         "title": "Improved Entity entity",
@@ -321,28 +309,28 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                 "entity": entity,
                                 "index": 0,
                                 "iteration": 0,
+                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
                                 "max_iteration": MAX_ITERATION},
                                # Would you like to edit the model
                                {"question": "Would you like to edit the model?",
-                                "prompt": None,
+                                "prompt": {},
                                 "answer": None,
                                 "function": None,
                                 "index": 0,
                                 "iteration": 0,
+                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
                                 "max_iteration": 0},
-                               # Generate entity entity (entity example json) based on the user input
                                {"question": None,
                                 "prompt": {
-                                    "text": f"Generate example data json (data model) for entity {entity.get("entity_name")}. This is not related to entity schema and should be random sample data that reflects the purpose of the entity or the data that is specified by the user. Base your answer on the user input if any: ",
-                                    "function": {"name": "save_entity_to_file"},
+                                    "text": f"Generate example data json (data model) for entity {entity.get("entity_name")}. This is NOT related to entity design and should be random sample data that can be mock data returned from a datasource or data that reflects business logic or the data that is specified by the user. Base your answer on the user input if any: ",
                                     "schema": {
                                         "$schema": "http://json-schema.org/draft-07/schema#",
-                                        "title": "Entity entity",
+                                        "title": "Entity data",
                                         "type": "object",
                                         "properties": {
                                             "entity": {
                                                 "type": "object",
-                                                "description": "json object that represents entity entity example"
+                                                "description": "json object that represents example data"
                                             }
                                         },
                                         "required": [
@@ -355,30 +343,43 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                 "entity": entity,
                                 "index": 0,
                                 "iteration": 0,
+                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
                                 "max_iteration": 0},
                                # Would you like to specify the entity
                                {
                                    "question": f"Let's generate the entity schema. Would you like to specify the data for entity: {entity}",
-                                   "prompt": None,
+                                   "prompt": {},
                                    "answer": None,
                                    "function": None,
                                    "index": 0,
                                    "iteration": 0,
+                                   "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
+                                   "max_iteration": 0},
+                               {
+                                   "question": None,
+                                   "prompt": {},
+                                   "answer": None,
+                                   "function": {"name": "refresh_context"},
+                                   "context": {
+                                       "files": ["entity/**"],
+                                       "excluded_files": ["entity/workflow.py", "entity/__init__.py"],
+                                   },
+                                   "iteration": 0,
                                    "max_iteration": 0},
                                ]
-# save_processors_code_to_file
+
 workflow_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
-                                  "prompt": "",
+                                  "prompt": {},
                                   "answer": None,
                                   "function": None,
                                   "iteration": 0,
-                                  "max_iteration": 0
+                                  "max_iteration": 0,
+                                  "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.json",
                                   },
                                  # ========================================================================================================
                                  {"question": None,
                                   "prompt": {
                                       "text": f"Improve the workflow for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. User says: ",
-                                      "function": {"name": "export_workflow"},
                                       "schema": {
                                           "$schema": "http://json-schema.org/draft-07/schema#",
                                           "title": "Improved workflow design",
@@ -400,27 +401,40 @@ workflow_stack = lambda entity: [{"notification": "Generating Cyoda design: plea
                                   "entity": entity,
                                   "index": 0,
                                   "iteration": 0,
+                                  "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.json",
                                   "max_iteration": MAX_ITERATION},
                                  # Would you like to add any changes to entity workflow
                                  {"question": f"Would you like to add any changes to entity workflow {entity}",
-                                  "prompt": None,
+                                  "prompt": {},
                                   "answer": None,
                                   "function": None,
                                   "index": 0,
                                   "iteration": 0,
-                                  "max_iteration": 0}]
+                                  "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.json",
+                                  "max_iteration": 0},
+                                 {
+                                     "question": None,
+                                     "prompt": {},
+                                     "answer": None,
+                                     "function": {"name": "refresh_context"},
+                                     "context": {
+                                         "files": [f"entity/app_design.json"],
+                                     },
+                                     "iteration": 0,
+                                     "max_iteration": 0},
+                                 ]
 
 processors_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
-                                    "prompt": "",
+                                    "prompt": {},
                                     "answer": None,
                                     "function": None,
                                     "iteration": 0,
-                                    "max_iteration": 0
+                                    "max_iteration": 0,
+                                    "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py"
                                     },
                                    {"question": None,
                                     "prompt": {
                                         "text": f"Improve the functions code for {entity.get("entity_name")}  based on the user suggestions if there are any, if not you can proceed. User says: ",
-                                        "function": {"name": "save_processors_code_to_file"},
                                         "schema": {
                                             "$schema": "http://json-schema.org/draft-07/schema#",
                                             "title": "Improved functions code",
@@ -432,7 +446,7 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                                 },
                                                 "code": {
                                                     "type": "string",
-
+                                                    "description": "working code with tests"
                                                 }
                                             },
                                             "required": [
@@ -446,10 +460,12 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                     "entity": entity,
                                     "index": 0,
                                     "iteration": 0,
+                                    "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py",
                                     "max_iteration": MAX_ITERATION},
                                    # Would you like to edit the model
                                    {"question": "Would you like to edit the code?",
-                                    "prompt": None,
+                                    "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py",
+                                    "prompt": {},
                                     "answer": None,
                                     "function": None,
                                     "index": 0,
@@ -458,14 +474,14 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                    # Generate the processor functions
                                    {"question": None,
                                     "prompt": {
-                                        "function": {"name": "save_processors_code_to_file"},
                                         "text": f"Generate the processor functions for {entity.get('entity_name')} "
-                                                f"with the processors in each transition: "
+                                                f"call public functions by the name of each processor: "
                                                 f"{', '.join([transition.get('process', {}).get('name', '') for transition in entity.get('entity_workflow', {}).get('transitions', [])])}. "
-                                                f" For each processor in each transition, generate the processor logic. "
-                                                f" Make sure you include logic to save any dependant entities and use all the supplementary code from the context $code ."
+                                                f" Reuse functions that are available in the code base, including logic.app_init import entity_service, connections.py and any other existing function that is related to your purpose."
+                                                f" Make sure you include logic to save any dependant entities: {', '.join([transition.get('process', {}).get('adds_new_entites', '') for transition in entity.get('entity_workflow', {}).get('transitions', [])])}."
                                                 f" Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment."
                                                 f"{entity.get('entity_name')}. Based on the user suggestions if there are any. "
+                                                f" Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object!"
                                                 f" User says: ",
                                         "schema": {
                                             "$schema": "http://json-schema.org/draft-07/schema#",
@@ -475,7 +491,6 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                             "properties": {
                                                 "code": {
                                                     "type": "string",
-
                                                 }
                                             },
                                             "required": [
@@ -488,43 +503,56 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                     "entity": entity,
                                     "index": 0,
                                     "iteration": 0,
-                                    "context": {"code": ["code"]},
+                                    "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py",
                                     "max_iteration": MAX_ITERATION
                                     },
                                    # Would you like to specify any details for generating processors
                                    {
                                        "question": "Would you like to specify any details for generating processors functions?",
-                                       "prompt": None,
+                                       "prompt": {},
                                        "answer": None,
                                        "function": None,
                                        "index": 0,
                                        "iteration": 0,
-                                       "max_iteration": 0}
+                                       "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py",
+                                       "max_iteration": 0},
+                                   {
+                                       "question": None,
+                                       "prompt": {},
+                                       "answer": None,
+                                       "function": {"name": "refresh_context"},
+                                       "context": {
+                                           "files": ["common/service/entity_service_interface.py",
+                                                     "processor_instruction.txt", "entity/**"],
+                                           "excluded_files": ["entity/workflow.py", "entity/__init__.py"],
+                                       },
+                                       "iteration": 0,
+                                       "max_iteration": 0},
                                    ]
 
 scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
-                                   "prompt": "",
+                                   "prompt": {},
                                    "answer": None,
                                    "function": None,
                                    "iteration": 0,
+                                   "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                    "max_iteration": 0
                                    },
                                   # ========================================================================================================
                                   {"question": None,
                                    "prompt": {
-                                       "text": f"Improve the code for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. User says: ",
-                                       "function": {"name": "save_logic_code_to_file"},
+                                       "text": f"Improve the code for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object!  User says: ",
                                        "schema": {
                                            "$schema": "http://json-schema.org/draft-07/schema#",
                                            "title": "Improved code",
                                            "type": "object",
                                            "properties": {
                                                "can_proceed": {
-                                                   "type": "boolean",
-                                                   "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are satisfied with the code and you can proceed to the next step."
+                                                   "type": "boolean"
                                                },
                                                "code": {
                                                    "type": "string",
+                                                   "description": "working code with tests"
                                                }
                                            },
                                            "required": [
@@ -538,29 +566,29 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                    "entity": entity,
                                    "index": 0,
                                    "iteration": 0,
+                                   "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                    "max_iteration": MAX_ITERATION},
                                   # Would you like to edit the model
                                   {"question": "Would you like to edit the code?",
-                                   "prompt": None,
+                                   "prompt": {},
                                    "answer": None,
                                    "function": None,
                                    "index": 0,
                                    "iteration": 0,
+                                   "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                    "max_iteration": 0},
                                   # ========================================================================================================
                                   # Generate the processor functions
                                   {"question": None,
                                    "prompt": {
-                                       "text": f"Generate the scheduler file for {entity.get("entity_name")}  based on the user suggestions if there are any, if not you can proceed. This function should save a job entity with data model $data to cyoda. Besides, it should not do any logic. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. User says: ",
-                                       "function": {"name": "save_logic_code_to_file"},
+                                       "text": f"Generate the scheduler file for {entity.get("entity_name")}  based on the user suggestions if there are any, if not you can proceed. Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object! This function should save a job entity with data model $data to cyoda. Besides, it should not do any logic. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. User says: ",
                                        "schema": {
                                            "$schema": "http://json-schema.org/draft-07/schema#",
                                            "title": "Processors functions",
                                            "type": "object",
                                            "properties": {
                                                "code": {
-                                                   "type": "string",
-                                               }
+                                                   "type": "string"                                               }
                                            },
                                            "required": [
                                                "code"
@@ -572,31 +600,46 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                    "entity": entity,
                                    "index": 0,
                                    "iteration": 0,
-                                   "context": {"data": [entity.get("entity_name"), "data"]},
+                                   "context": {"prompt": {"data": [entity.get("entity_name"), "data"]}},
+                                   "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                    "max_iteration": MAX_ITERATION
                                    },
                                   {
                                       "question": f"Let's generate the logic to schedule saving the entity {entity.get("entity_name")}. Would you like to specify any details?",
-                                      "prompt": None,
+                                      "prompt": {},
                                       "answer": None,
                                       "function": None,
                                       "index": 0,
                                       "iteration": 0,
-                                      "max_iteration": 0}
+                                      "file_name": f"entity/{entity.get("entity_name")}/logic.py",
+                                      "max_iteration": 0},
+                                  {
+                                      "question": None,
+                                      "prompt": {},
+                                      "answer": None,
+                                      "function": {"name": "refresh_context"},
+                                      "context": {
+                                          "files": ["common/service/entity_service_interface.py",
+                                                    "logic_instruction.txt",
+                                                    f"entity/app_design.json",
+                                                    f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
+                                      },
+                                      "iteration": 0,
+                                      "max_iteration": 0},
                                   ]
 
 form_submission_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
-                                         "prompt": "",
+                                         "prompt": {},
                                          "answer": None,
                                          "function": None,
                                          "iteration": 0,
+                                         "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                          "max_iteration": 0
                                          },
                                         # ========================================================================================================
                                         {"question": None,
                                          "prompt": {
                                              "text": f"Improve the code for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. User says: ",
-                                             "function": {"name": "save_logic_code_to_file"},
                                              "schema": {
                                                  "$schema": "http://json-schema.org/draft-07/schema#",
                                                  "title": "Improved code",
@@ -607,8 +650,7 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                                          "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are satisfied with the code and you can proceed to the next step."
                                                      },
                                                      "code": {
-                                                         "type": "string",
-
+                                                         "type": "string"
                                                      }
                                                  },
                                                  "required": [
@@ -622,21 +664,22 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                          "entity": entity,
                                          "index": 0,
                                          "iteration": 0,
+                                         "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                          "max_iteration": MAX_ITERATION},
                                         # Would you like to edit the model
                                         {"question": "Would you like to edit the code?",
-                                         "prompt": None,
+                                         "prompt": {},
                                          "answer": None,
                                          "function": None,
                                          "index": 0,
                                          "iteration": 0,
+                                         "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                          "max_iteration": 0},
                                         # ========================================================================================================
                                         # Generate the processor functions
                                         {"question": None,
                                          "prompt": {
-                                             "text": f"Generate the logic file to process the form application and saving the entity {entity.get("entity_name")}  based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. User says: ",
-                                             "function": {"name": "save_logic_code_to_file"},
+                                             "text": f"Generate the logic file to process the form application and saving the entity {entity.get("entity_name")}  based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object! User says: ",
                                              "schema": {
                                                  "$schema": "http://json-schema.org/draft-07/schema#",
                                                  "title": "Processors functions",
@@ -644,6 +687,7 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                                  "properties": {
                                                      "code": {
                                                          "type": "string",
+                                                         "description": "working code with tests"
                                                      }
                                                  },
                                                  "required": [
@@ -656,31 +700,46 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                          "entity": entity,
                                          "index": 0,
                                          "iteration": 0,
-                                         "context": {"data": [entity.get("entity_name"), "data"]},
+                                         "context": {"prompt": {"data": [entity.get("entity_name"), "data"]}},
+                                         "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                          "max_iteration": MAX_ITERATION
                                          },
                                         {
                                             "question": f"Let's generate the logic to process the form application and saving the entity {entity.get("entity_name")} with the form entity. Would you like to specify any details?",
-                                            "prompt": None,
+                                            "prompt": {},
                                             "answer": None,
                                             "function": None,
                                             "index": 0,
                                             "iteration": 0,
-                                            "max_iteration": 0}
+                                            "file_name": f"entity/{entity.get("entity_name")}/logic.py",
+                                            "max_iteration": 0},
+                                        {
+                                            "question": None,
+                                            "prompt": {},
+                                            "answer": None,
+                                            "function": {"name": "refresh_context"},
+                                            "context": {
+                                                "files": ["common/service/entity_service_interface.py",
+                                                          "logic_instruction.txt",
+                                                          f"entity/app_design.json",
+                                                          f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
+                                            },
+                                            "iteration": 0,
+                                            "max_iteration": 0},
                                         ]
 
 file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
-                                     "prompt": "",
+                                     "prompt": {},
                                      "answer": None,
                                      "function": None,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": 0
                                      },
                                     # ========================================================================================================
                                     {"question": None,
                                      "prompt": {
                                          "text": f"Improve the code for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. User says: ",
-                                         "function": {"name": "save_logic_code_to_file"},
                                          "schema": {
                                              "$schema": "http://json-schema.org/draft-07/schema#",
                                              "title": "Improved code",
@@ -691,8 +750,7 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                                      "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are satisfied with the code and you can proceed to the next step."
                                                  },
                                                  "code": {
-                                                     "type": "string",
-
+                                                     "type": "string"
                                                  }
                                              },
                                              "required": [
@@ -706,29 +764,29 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "entity": entity,
                                      "index": 0,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": MAX_ITERATION},
                                     # Would you like to edit the model
                                     {"question": "Would you like to edit the code?",
-                                     "prompt": None,
+                                     "prompt": {},
                                      "answer": None,
                                      "function": None,
                                      "index": 0,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": 0},
                                     # ========================================================================================================
                                     # Generate the processor functions
                                     {"question": None,
                                      "prompt": {
-                                         "text": f"Generate the logic file to upload the file and saving the entity {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. User says: ",
-                                         "function": {"name": "save_logic_code_to_file"},
+                                         "text": f"Generate the logic file to upload the file and saving the entity {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object! User says: ",
                                          "schema": {
                                              "$schema": "http://json-schema.org/draft-07/schema#",
                                              "title": "Processors functions",
                                              "type": "object",
                                              "properties": {
                                                  "code": {
-                                                     "type": "string",
-
+                                                     "type": "string"
                                                  }
                                              },
                                              "required": [
@@ -741,31 +799,46 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "entity": entity,
                                      "index": 0,
                                      "iteration": 0,
-                                     "context": {"data": [entity.get("entity_name"), "data"]},
+                                     "context": {"prompt": {"data": [entity.get("entity_name"), "data"]}},
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": MAX_ITERATION
                                      },
                                     {
                                         "question": f"Let's generate the logic to upload the file and saving the entity {entity.get("entity_name")} based on the file contents. Would you like to specify any details?",
-                                        "prompt": None,
+                                        "prompt": {},
                                         "answer": None,
                                         "function": None,
                                         "index": 0,
                                         "iteration": 0,
-                                        "max_iteration": 0}
+                                        "file_name": f"entity/{entity.get("entity_name")}/logic.py",
+                                        "max_iteration": 0},
+                                    {
+                                        "question": None,
+                                        "prompt": {},
+                                        "answer": None,
+                                        "function": {"name": "refresh_context"},
+                                        "context": {
+                                            "files": ["common/service/entity_service_interface.py",
+                                                      "logic_instruction.txt",
+                                                      f"entity/app_design.json",
+                                                      f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
+                                        },
+                                        "iteration": 0,
+                                        "max_iteration": 0},
                                     ]
 
 api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
-                                     "prompt": "",
+                                     "prompt": {},
                                      "answer": None,
                                      "function": None,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": 0
                                      },
                                     # ========================================================================================================
                                     {"question": None,
                                      "prompt": {
                                          "text": f"Improve the code for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. User says: ",
-                                         "function": {"name": "save_logic_code_to_file"},
                                          "schema": {
                                              "$schema": "http://json-schema.org/draft-07/schema#",
                                              "title": "Improved code",
@@ -776,8 +849,7 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                                      "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are satisfied with the code and you can proceed to the next step."
                                                  },
                                                  "code": {
-                                                     "type": "string",
-
+                                                     "type": "string"
                                                  }
                                              },
                                              "required": [
@@ -791,30 +863,29 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "entity": entity,
                                      "index": 0,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": MAX_ITERATION},
                                     # Would you like to edit the model
                                     {"question": "Would you like to edit the code?",
-                                     "prompt": None,
+                                     "prompt": {},
                                      "answer": None,
                                      "function": None,
                                      "index": 0,
                                      "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": 0},
                                     # ========================================================================================================
                                     # Generate the processor functions
                                     {"question": None,
                                      "prompt": {
-                                         "text": f"Generate the api file to save the entity {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. User says: ",
-                                         "function": {"name": "save_logic_code_to_file"},
+                                         "text": f"Generate the api file to save the entity {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment . Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object! User says: ",
                                          "schema": {
                                              "$schema": "http://json-schema.org/draft-07/schema#",
                                              "title": "Processors functions",
                                              "type": "object",
                                              "properties": {
                                                  "code": {
-                                                     "type": "string",
-
-                                                 }
+                                                     "type": "string"                                                 }
                                              },
                                              "required": [
                                                  "code"
@@ -826,45 +897,62 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                      "entity": entity,
                                      "index": 0,
                                      "iteration": 0,
-                                     "context": {"data": [entity.get("entity_name"), "data"]},
+                                     "context": {"prompt": {"data": [entity.get("entity_name"), "data"]}},
+                                     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
                                      "max_iteration": MAX_ITERATION
                                      },
                                     {
                                         "question": f"Let's generate the api for processing entity and saving the entity {entity.get("entity_name")}. Would you like to specify any details?",
-                                        "prompt": None,
+                                        "prompt": {},
                                         "answer": None,
                                         "function": None,
                                         "index": 0,
                                         "iteration": 0,
-                                        "max_iteration": 0}
+                                        "file_name": f"entity/{entity.get("entity_name")}/logic.py",
+                                        "max_iteration": 0},
+                                    {
+                                        "question": None,
+                                        "prompt": {},
+                                        "answer": None,
+                                        "function": {"name": "refresh_context"},
+                                        "context": {
+                                            "files": ["common/service/entity_service_interface.py",
+                                                      "logic_instruction.txt",
+                                                      f"entity/app_design.json",
+                                                      f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
+                                        },
+                                        "iteration": 0,
+                                        "max_iteration": 0},
                                     ]
 
 external_datasource_stack = lambda entity: [{"question": None,
-                                             "prompt": None,
+                                             "prompt": {},
                                              "answer": None,
                                              "entity": entity,
                                              "function": {"name": "save_raw_data_to_entity_file"},
                                              "iteration": 0,
+                                             "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
                                              "max_iteration": 0},
                                             {"question": f"Please specify the schema for {entity.get("entity_name")}.",
-                                             "prompt": None,
+                                             "prompt": {},
                                              "answer": None,
                                              "function": None,
                                              "iteration": 0,
+                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
                                              "max_iteration": 0},
                                             # please wait
                                             {"notification": "Generating Cyoda design: please wait",
-                                             "prompt": "",
+                                             "prompt": {},
                                              "answer": None,
                                              "function": None,
                                              "iteration": 0,
+                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
                                              "max_iteration": 0
                                              },
                                             {"question": None,
                                              "prompt": {
                                                  "text": f"Generate python code to get data from this external data source. The code should contain functions for each of the specified endpoints. Each function takes request parameters as input parameters and returns raw data as a response. Call the public function ingest_data(...). Provide a main method to test the ingest_data. After you return the result ask the user for validation.",
                                                  "api": RANDOM_AI_API,
-                                                 "function": {"name": "save_connections_code_to_file"},
                                                  "schema": {
                                                      "$schema": "http://json-schema.org/draft-07/schema#",
                                                      "title": "External data source configuration code",
@@ -876,7 +964,7 @@ external_datasource_stack = lambda entity: [{"question": None,
                                                          },
                                                          "code": {
                                                              "type": "string",
-
+                                                             "description": "working code with tests"
                                                          }
                                                      },
                                                      "required": [
@@ -890,6 +978,7 @@ external_datasource_stack = lambda entity: [{"question": None,
                                              "entity": entity,
                                              "index": 0,
                                              "iteration": 0,
+                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
                                              "max_iteration": MAX_ITERATION
                                              },
                                             {"question": None,
@@ -921,15 +1010,26 @@ external_datasource_stack = lambda entity: [{"question": None,
                                              "entity": entity,
                                              "index": 0,
                                              "iteration": 0,
+                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
                                              "max_iteration": MAX_ITERATION
                                              },
                                             {
                                                 "question": f"Let's set up a connection to ingest data from an external source. Could you please provide the configuration details? You can either share a link to the relevant API documentation (e.g., Swagger or OpenAPI) or offer instructions for configuring the connection. If applicable, please include any additional details such as specific endpoints, default parameters, or other relevant information.",
-                                                "prompt": None,
+                                                "prompt": {},
                                                 "answer": None,
                                                 "function": None,
                                                 "index": 0,
                                                 "iteration": 0,
-                                                "max_iteration": 0}
-
+                                                "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
+                                                "max_iteration": 0},
+                                            {
+                                                "question": None,
+                                                "prompt": {},
+                                                "answer": None,
+                                                "function": {"name": "refresh_context"},
+                                                "context": {
+                                                    "files": [],
+                                                },
+                                                "iteration": 0,
+                                                "max_iteration": 0},
                                             ]

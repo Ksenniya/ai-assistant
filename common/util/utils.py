@@ -1,5 +1,6 @@
 import os
 import logging
+import subprocess
 import time
 import re
 import requests
@@ -8,6 +9,8 @@ import uuid
 import json
 import jsonschema
 from jsonschema import validate
+
+from common.config.config import PROJECT_DIR, REPOSITORY_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -222,3 +225,22 @@ def clean_formatting(text):
 #     text = re.sub(r'[^\w\s]', '', text)
 #
 #     return text
+
+
+
+def git_pull(chat_id):
+
+    clone_dir = f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}"
+    os.chdir(clone_dir)
+    # Create a new branch with the name $chat_id
+    subprocess.run(["git", "checkout", str(chat_id)], check=True)
+    try:
+        # Push the new branch to the remote repository
+        subprocess.run(["git", "pull", "origin", str(chat_id)], check=True)
+    except Exception as e:
+        logger.error(f"Error during git push: {e}")
+        logger.exception(e)
+
+
+def get_project_file_name(chat_id, file_name):
+    return f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}/{file_name}"
