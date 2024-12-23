@@ -68,12 +68,14 @@ def _chat(chat, _event, token, ai_endpoint, chat_id):
     event_prompt, prompt = build_prompt(_event, chat)
     result = _get_chat_response(prompt=prompt, token=token, ai_endpoint=ai_endpoint, chat_id=chat_id)
     if event_prompt.get("schema"):
-        return _get_valid_result(data=result,
-                                 schema=event_prompt["schema"],
-                                 token=token,
-                                 ai_endpoint=ai_endpoint,
-                                 chat_id=chat_id)
-
+        try:
+            return _get_valid_result(data=result,
+                                     schema=event_prompt["schema"],
+                                     token=token,
+                                     ai_endpoint=ai_endpoint,
+                                     chat_id=chat_id)
+        except Exception as e:
+            return {"success": "false", "error": str(e)}
     return result
 
 

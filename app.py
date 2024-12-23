@@ -179,9 +179,9 @@ def rollback_dialogue_script(technical_id, auth_header, chat):
     current_flow = chat["chat_flow"]["current_flow"]
     finished_flow = chat["chat_flow"]["finished_flow"]
     event = finished_flow.pop()
-    while not event.get("function") or event.get("function").get("name") != "refresh_context":
+    while event and (not event.get("function") or event.get("function").get("name") != "refresh_context"):
         current_flow.append(event)
-    current_flow.append(event)
+        event = finished_flow.pop()
     entity_service.update_item(token=auth_header,
                                entity_model="chat",
                                entity_version=ENTITY_VERSION,

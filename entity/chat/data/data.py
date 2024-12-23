@@ -481,6 +481,7 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                                 f" Make sure you include logic to save any dependant entities: {', '.join([transition.get('process', {}).get('adds_new_entites', '') for transition in entity.get('entity_workflow', {}).get('transitions', [])])}."
                                                 f" Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment."
                                                 f"{entity.get('entity_name')}. Based on the user suggestions if there are any. "
+                                                f" Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object!"
                                                 f" User says: ",
                                         "schema": {
                                             "$schema": "http://json-schema.org/draft-07/schema#",
@@ -490,7 +491,6 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                             "properties": {
                                                 "code": {
                                                     "type": "string",
-                                                    "description": "working code with tests"
                                                 }
                                             },
                                             "required": [
@@ -541,15 +541,14 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                   # ========================================================================================================
                                   {"question": None,
                                    "prompt": {
-                                       "text": f"Improve the code for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. User says: ",
+                                       "text": f"Improve the code for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object!  User says: ",
                                        "schema": {
                                            "$schema": "http://json-schema.org/draft-07/schema#",
                                            "title": "Improved code",
                                            "type": "object",
                                            "properties": {
                                                "can_proceed": {
-                                                   "type": "boolean",
-                                                   "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are satisfied with the code and you can proceed to the next step."
+                                                   "type": "boolean"
                                                },
                                                "code": {
                                                    "type": "string",
@@ -582,16 +581,14 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                   # Generate the processor functions
                                   {"question": None,
                                    "prompt": {
-                                       "text": f"Generate the scheduler file for {entity.get("entity_name")}  based on the user suggestions if there are any, if not you can proceed. This function should save a job entity with data model $data to cyoda. Besides, it should not do any logic. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. User says: ",
+                                       "text": f"Generate the scheduler file for {entity.get("entity_name")}  based on the user suggestions if there are any, if not you can proceed. Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object! This function should save a job entity with data model $data to cyoda. Besides, it should not do any logic. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. User says: ",
                                        "schema": {
                                            "$schema": "http://json-schema.org/draft-07/schema#",
                                            "title": "Processors functions",
                                            "type": "object",
                                            "properties": {
                                                "code": {
-                                                   "type": "string",
-                                                   "description": "working code with tests"
-                                               }
+                                                   "type": "string"                                               }
                                            },
                                            "required": [
                                                "code"
@@ -653,9 +650,7 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                                          "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are satisfied with the code and you can proceed to the next step."
                                                      },
                                                      "code": {
-                                                         "type": "string",
-                                                         "description": "working code with tests"
-
+                                                         "type": "string"
                                                      }
                                                  },
                                                  "required": [
@@ -684,7 +679,7 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                         # Generate the processor functions
                                         {"question": None,
                                          "prompt": {
-                                             "text": f"Generate the logic file to process the form application and saving the entity {entity.get("entity_name")}  based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. User says: ",
+                                             "text": f"Generate the logic file to process the form application and saving the entity {entity.get("entity_name")}  based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object! User says: ",
                                              "schema": {
                                                  "$schema": "http://json-schema.org/draft-07/schema#",
                                                  "title": "Processors functions",
@@ -755,9 +750,7 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                                      "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are satisfied with the code and you can proceed to the next step."
                                                  },
                                                  "code": {
-                                                     "type": "string",
-                                                     "description": "working code with tests"
-
+                                                     "type": "string"
                                                  }
                                              },
                                              "required": [
@@ -786,15 +779,14 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                     # Generate the processor functions
                                     {"question": None,
                                      "prompt": {
-                                         "text": f"Generate the logic file to upload the file and saving the entity {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. User says: ",
+                                         "text": f"Generate the logic file to upload the file and saving the entity {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object! User says: ",
                                          "schema": {
                                              "$schema": "http://json-schema.org/draft-07/schema#",
                                              "title": "Processors functions",
                                              "type": "object",
                                              "properties": {
                                                  "code": {
-                                                     "type": "string",
-                                                     "description": "working code with tests"
+                                                     "type": "string"
                                                  }
                                              },
                                              "required": [
@@ -857,8 +849,7 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                                      "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are satisfied with the code and you can proceed to the next step."
                                                  },
                                                  "code": {
-                                                     "type": "string",
-                                                     "description": "working code with tests"
+                                                     "type": "string"
                                                  }
                                              },
                                              "required": [
@@ -887,16 +878,14 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                     # Generate the processor functions
                                     {"question": None,
                                      "prompt": {
-                                         "text": f"Generate the api file to save the entity {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment . User says: ",
+                                         "text": f"Generate the api file to save the entity {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment . Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object! User says: ",
                                          "schema": {
                                              "$schema": "http://json-schema.org/draft-07/schema#",
                                              "title": "Processors functions",
                                              "type": "object",
                                              "properties": {
                                                  "code": {
-                                                     "type": "string",
-                                                     "description": "working code with tests"
-                                                 }
+                                                     "type": "string"                                                 }
                                              },
                                              "required": [
                                                  "code"
