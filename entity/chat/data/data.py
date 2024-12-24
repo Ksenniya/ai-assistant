@@ -33,21 +33,21 @@ ENTITY_WORKFLOW = {
                     "end_state_description": {
                         "type": "string"
                     },
-                    "criteria": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string"
-                            },
-                            "description": {
-                                "type": "string"
-                            }
-                        },
-                        "required": [
-                            "name",
-                            "description"
-                        ]
-                    },
+                    # "criteria": {
+                    #     "type": "object",
+                    #     "properties": {
+                    #         "name": {
+                    #             "type": "string"
+                    #         },
+                    #         "description": {
+                    #             "type": "string"
+                    #         }
+                    #     },
+                    #     "required": [
+                    #         "name",
+                    #         "description"
+                    #     ]
+                    # },
                     "process": {
                         "type": "object",
                         "properties": {
@@ -404,13 +404,22 @@ workflow_stack = lambda entity: [{"notification": "Generating Cyoda design: plea
                                   "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.json",
                                   "max_iteration": MAX_ITERATION},
                                  # Would you like to add any changes to entity workflow
-                                 {"question": f"Would you like to add any changes to entity workflow {entity}",
+                                 {
+                                     "question": f"Would you like to add any changes to entity workflow: entity/{entity.get("entity_name")}/workflow/workflow.json",
+                                     "prompt": {},
+                                     "answer": None,
+                                     "function": None,
+                                     "index": 0,
+                                     "iteration": 0,
+                                     "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.json",
+                                     "max_iteration": 0},
+                                 {"question": None,
                                   "prompt": {},
                                   "answer": None,
-                                  "function": None,
-                                  "index": 0,
-                                  "iteration": 0,
+                                  "function": {"name": "generate_cyoda_workflow"},
                                   "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.json",
+                                  "entity": entity,
+                                  "iteration": 0,
                                   "max_iteration": 0},
                                  {
                                      "question": None,
@@ -421,7 +430,7 @@ workflow_stack = lambda entity: [{"notification": "Generating Cyoda design: plea
                                          "files": [f"entity/app_design.json"],
                                      },
                                      "iteration": 0,
-                                     "max_iteration": 0},
+                                     "max_iteration": 0}
                                  ]
 
 processors_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
@@ -588,7 +597,7 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                            "type": "object",
                                            "properties": {
                                                "code": {
-                                                   "type": "string"                                               }
+                                                   "type": "string"}
                                            },
                                            "required": [
                                                "code"
@@ -885,7 +894,7 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                              "type": "object",
                                              "properties": {
                                                  "code": {
-                                                     "type": "string"                                                 }
+                                                     "type": "string"}
                                              },
                                              "required": [
                                                  "code"
@@ -951,7 +960,7 @@ external_datasource_stack = lambda entity: [{"question": None,
                                              },
                                             {"question": None,
                                              "prompt": {
-                                                 "text": f"Generate python code to get data from this external data source. The code should contain functions for each of the specified endpoints. Each function takes request parameters as input parameters and returns raw data as a response. Call the public function ingest_data(...). Provide a main method to test the ingest_data. After you return the result ask the user for validation.",
+                                                 "text": f"Generate python code to get data from this external data source. The code should contain functions for each of the specified endpoints. Each function takes request parameters as input parameters and returns raw data as a response. Call the public function ingest_data(...). Provide a main method to test the ingest_data. After you return the result ask the user for validation.   Example response should be like {{\"code\": \"all code here\", \"can_proceed\": \"false\"}} where code has a string value, not an object! ",
                                                  "api": RANDOM_AI_API,
                                                  "schema": {
                                                      "$schema": "http://json-schema.org/draft-07/schema#",
@@ -983,7 +992,7 @@ external_datasource_stack = lambda entity: [{"question": None,
                                              },
                                             {"question": None,
                                              "prompt": {
-                                                 "text": f"Generate the summary of the connection details specified by the user. After you return the result ask the user for validation.",
+                                                 "text": f"Generate the summary of the connection details specified by the user. After you return the result ask the user for validation.  Example response should be like {{\"summary\": \"all summary here\", \"can_proceed\": \"false\"}} where summary has a string value, not an object! ",
                                                  "api": RANDOM_AI_API,
                                                  "schema": {
                                                      "$schema": "http://json-schema.org/draft-07/schema#",
