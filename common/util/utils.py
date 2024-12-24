@@ -53,6 +53,53 @@ def parse_json(result: str) -> str:
     return result
 
 
+def parse_json_v1(result: str) -> str:
+    # Function to replace single quotes with double quotes and handle True/False
+    def convert_to_json_compliant_string(text: str) -> str:
+        # Convert Python-style booleans to JSON booleans (True -> true, False -> false)
+        text = text.replace("True", "true").replace("False", "false")
+
+        # Replace single quotes with double quotes for strings
+        # This replacement will happen only for string-like values (inside curly braces or key-value pairs)
+        text = re.sub(r"(?<=:)\s*'(.*?)'\s*(?=\s*,|\s*\})", r'"\1"', text)  # For values
+        text = re.sub(r"(?<=,|\{|\[)\s*'(.*?)'\s*(?=\s*:|\s*,|\s*\])", r'"\1"', text)  # For keys
+
+        # Ensure the surrounding quotes around strings
+        text = re.sub(r"(?<=:)\s*'(.*?)'\s*(?=\s*,|\s*\})", r'"\1"', text)
+        return text
+
+    # If result is a dictionary, convert it to JSON with double quotes
+    if isinstance(result, dict):
+        return json.dumps(result, ensure_ascii=False)
+
+    # If result is a string, process it for improper quote handling
+    if isinstance(result, str):
+        if result.startswith("```json"):
+            # Extract the content inside the json code block
+            start_index = result.find("```json") + len("```json\n")
+            end_index = result.find("```", start_index)
+            json_content = result[start_index:end_index].strip()
+
+            # Apply the corrections: Convert single quotes, True/False to JSON-compatible format
+            json_content = convert_to_json_compliant_string(json_content)
+
+            # Try to parse the extracted content as JSON
+            try:
+                parsed_json = json.loads(json_content)
+                return json.dumps(parsed_json, ensure_ascii=False)
+            except json.JSONDecodeError:
+                return json_content  # If parsing fails, return the original content as is
+        elif result.startswith("```"):
+            # If result is a general code block, strip the backticks and return it
+            return "\n".join(result.split("\n")[1:-1])
+        else:
+            # Apply the corrections to the string content
+            result = convert_to_json_compliant_string(result)
+            return result
+
+    # Return result as-is if it's neither a dictionary nor a valid string format
+    return result
+
 def validate_result(parsed_result: str, file_path: str, schema: Optional[str]) -> str:
     if file_path:
         try:

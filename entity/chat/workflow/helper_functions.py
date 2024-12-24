@@ -10,7 +10,7 @@ from uuid import UUID
 import black
 
 from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO
-from common.util.utils import read_file, get_project_file_name, git_pull
+from common.util.utils import read_file, get_project_file_name, git_pull, parse_json
 from entity.chat.data.mock_data_generator import generate_mock_data
 from logic.init import ai_service
 
