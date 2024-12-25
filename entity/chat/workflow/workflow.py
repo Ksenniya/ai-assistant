@@ -105,7 +105,7 @@ def generate_cyoda_workflow(token, _event, chat):
         return
     try:
         if (_event.get("entity").get("entity_workflow") and _event.get("entity").get("entity_workflow").get("transitions")):
-            ai_question = f"what workflow could you recommend for this sketch: {json.dumps(_event.get("entity").get("entity_workflow"))}. All transitions automated, no criteria needed, only externalized processors allowed, calculation node = {chat["chat_id"]}.  Return only json without any comments."
+            ai_question = f"what workflow could you recommend for this sketch: {json.dumps(_event.get("entity").get("entity_workflow"))}. All transitions automated, no criteria needed, only externalized processors allowed, calculation node = {chat["chat_id"]}  , .  Return only json without any comments."
             resp = ai_service.ai_chat(token=token, chat_id=chat["chat_id"], ai_endpoint=WORKFLOW_AI_API, ai_question=ai_question)
             workflow = parse_json_v1(resp)
             _save_file(chat_id = chat["chat_id"], data = workflow, item = _event["file_name"])
