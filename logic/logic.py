@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 #     """Enqueue a question event."""
 #     question_queue.put(event)
 
-def process_answer(_event: Dict[str, Any], chat) -> None:
+def process_answer(token, _event: Dict[str, Any], chat) -> None:
     """
     Process an answer event by interacting with the chat service and managing the event stack.
     """
@@ -50,7 +50,7 @@ def process_answer(_event: Dict[str, Any], chat) -> None:
             stack.append({NOTIFICATION: "Finishing iteration with result: "})
         if _event.get("prompt", {}).get("function", ''):
             function_event = _get_event_template(event=_event, notification='', answer='', prompt={}, question='')
-            dispatch_function(function_event, chat)
+            dispatch_function(token, function_event, chat)
         _save_result_to_file(chat=chat, _event=_event, data=result)
 
 
@@ -81,9 +81,9 @@ async def process_dialogue_script(token, technical_id) -> None:
         event = stack.pop()
         finished_stack.append(event)
         if event.get(FUNCTION):
-            dispatch_function(event, chat)
+            dispatch_function(token, event, chat)
         elif event.get(PROMPT):
-            process_answer(event, chat)
+            process_answer(token, event, chat)
         elif event.get(NOTIFICATION):
             chat["questions_queue"]["new_questions"].put(event)
             await clients_queue.put(technical_id)
