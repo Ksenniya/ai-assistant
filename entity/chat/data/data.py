@@ -240,13 +240,23 @@ app_building_stack = [{"question": "Finished",
                        "max_iteration": MAX_ITERATION},
                       # What application would you like to build
                       {
-                          "question": "Hello! What application would you like to build? Could you, please, share your ideas?",
+                          "question": "What application would you like to build? Could you, please, share your ideas?",
                           "prompt": {},
                           "answer": None,
                           "function": None,
                           "iteration": 0,
                           "file_name": "entity/app_design.json",
                           "max_iteration": 0},
+                      {
+                          "notification": "Let's begin our journey!))",
+                          "prompt": {},
+                          "answer": None,
+                          "function": None,
+                          "iteration": 0,
+                          "file_name": "instruction.txt",
+                          "max_iteration": 0
+                      },
+
                       # add_instruction
                       {"question": None,
                        "prompt": {},
@@ -255,6 +265,15 @@ app_building_stack = [{"question": "Finished",
                        "file_name": "instruction.txt",
                        "iteration": 0,
                        "max_iteration": 0},
+                      {
+                          "notification": "If something goes wrong :-O, just rollback ^-^",
+                          "prompt": {},
+                          "answer": None,
+                          "function": None,
+                          "iteration": 0,
+                          "file_name": "instruction.txt",
+                          "max_iteration": 0
+                      },
                       # init_chats
                       {"question": None,
                        "prompt": {},
@@ -262,6 +281,34 @@ app_building_stack = [{"question": "Finished",
                        "function": {"name": "init_chats"},
                        "iteration": 0,
                        "max_iteration": 0},
+
+                      {
+                          "notification": "If you are happy with my work or you'd like me to pull your changes without analyzing them, please send me an approve notification ^-^",
+                          "prompt": {},
+                          "answer": None,
+                          "function": None,
+                          "iteration": 0,
+                          "file_name": "instruction.txt",
+                          "max_iteration": 0
+                      },
+                      {
+                          "notification": "If you'd like me to analyze your update to remote, please let me know by clicking the push button. I will fetch your changes and adjust them if necessary",
+                          "prompt": {},
+                          "answer": None,
+                          "function": None,
+                          "iteration": 0,
+                          "file_name": "instruction.txt",
+                          "max_iteration": 0
+                      },
+                      {
+                          "notification": "When I push my changes to remote, I will notify you. If you'd like to improve my changes, please let me know by either sending me a message or by using canvas",
+                          "prompt": {},
+                          "answer": None,
+                          "function": None,
+                          "iteration": 0,
+                          "file_name": "instruction.txt",
+                          "max_iteration": 0
+                      },
                       # clone_repo
                       {"question": None,
                        "prompt": {},
@@ -532,6 +579,8 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                        "function": {"name": "refresh_context"},
                                        "context": {
                                            "files": ["common/service/entity_service_interface.py",
+                                                     "common/service/trino_service.py",
+                                                     "common/ai/ai_assistant_service.py",
                                                      "processor_instruction.txt", "entity/**"],
                                            "excluded_files": ["entity/workflow.py", "entity/__init__.py"],
                                        },
@@ -629,6 +678,8 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                       "function": {"name": "refresh_context"},
                                       "context": {
                                           "files": ["common/service/entity_service_interface.py",
+                                                    "common/service/trino_service.py",
+                                                    "common/ai/ai_assistant_service.py",
                                                     "logic_instruction.txt",
                                                     f"entity/app_design.json",
                                                     f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
@@ -729,6 +780,8 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                             "function": {"name": "refresh_context"},
                                             "context": {
                                                 "files": ["common/service/entity_service_interface.py",
+                                                          "common/service/trino_service.py",
+                                                          "common/ai/ai_assistant_service.py",
                                                           "logic_instruction.txt",
                                                           f"entity/app_design.json",
                                                           f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
@@ -828,6 +881,8 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                         "function": {"name": "refresh_context"},
                                         "context": {
                                             "files": ["common/service/entity_service_interface.py",
+                                                      "common/service/trino_service.py",
+                                                      "common/ai/ai_assistant_service.py",
                                                       "logic_instruction.txt",
                                                       f"entity/app_design.json",
                                                       f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
@@ -926,6 +981,8 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                         "function": {"name": "refresh_context"},
                                         "context": {
                                             "files": ["common/service/entity_service_interface.py",
+                                                      "common/service/trino_service.py",
+                                                      "common/ai/ai_assistant_service.py",
                                                       "logic_instruction.txt",
                                                       f"entity/app_design.json",
                                                       f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],

@@ -7,7 +7,7 @@ from entity.chat.workflow.helper_functions import _get_event_template, _chat, _s
 from logic.init import cyoda_token, entity_service
 from logic.notifier import clients_queue
 
-QUESTION_OR_VALIDATE = "Please answer the question or validate"
+QUESTION_OR_VALIDATE = "Could you please help me review my output and approve it you are happy with the result ^-^"
 
 # Constants
 CAN_PROCEED = "can_proceed"
