@@ -84,7 +84,7 @@ def clone_repo(token, _event, chat):
     subprocess.run(["git", "checkout", "-b", str(chat["chat_id"])], check=True)
     logger.info(f"Repository cloned to {clone_dir}")
     _save_file(chat["chat_id"], chat["chat_id"], 'README.txt')
-    notification_text = f"Your project is ready at branch {chat["chat_id"]} in {clone_dir}"
+    notification_text = f"Your branch: {chat["chat_id"]} in {clone_dir}"
     _send_notification(chat=chat, event=_event, notification_text=notification_text)
 
 
@@ -94,7 +94,7 @@ def save_raw_data_to_entity_file(token, _event, chat) -> str:
     """
     file_name = _event["file_name"]
     _save_file(chat_id=chat["chat_id"], data=json.dumps(_event["answer"]), item=file_name)
-    notification_text = f"Pushing changes for {file_name}"
+    notification_text = f"^_^, I've pushed the changes to {file_name} . Could you please have a look 😸"
     _send_notification(chat=chat, event=_event, notification_text=notification_text)
     return _event["answer"]
 

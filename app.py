@@ -195,7 +195,8 @@ def rollback_dialogue_script(technical_id, auth_header, chat):
 def _submit_answer_helper(technical_id, answer, auth_header, chat):
     question_queue = chat["questions_queue"]["new_questions"]
     if not question_queue.empty():
-        return jsonify({"message": "Could you please have a look at a couple of more questions before submitting your answer?"}), 400
+        return jsonify({
+                           "message": "Could you please have a look at a couple of more questions before submitting your answer?"}), 400
     if not answer:
         return jsonify({"message": "Invalid entity"}), 400
     stack = chat["chat_flow"]["current_flow"]
@@ -203,7 +204,8 @@ def _submit_answer_helper(technical_id, answer, auth_header, chat):
         return jsonify({"message": "Finished"}), 200
     next_event = stack[-1]
     if answer == PUSH_NOTIFICATION:
-        next_event["answer"] = clean_formatting(read_file(get_project_file_name(chat['chat_id'], next_event["file_name"])))
+        next_event["answer"] = clean_formatting(
+            read_file(get_project_file_name(chat['chat_id'], next_event["file_name"])))
     elif answer == APPROVE:
         next_event["max_iteration"] = -1
     else:
@@ -294,12 +296,51 @@ async def add_chat():
         return jsonify({"message": "Invalid chat name"}), 400
     # Here, handle the answer (e.g., store it, process it, etc.)
     # todo use tech id as chat id
+    new_questions_stack = [{
+                          "notification": "Please, checkout your dedicated branch. Only you and me will be contributing to it ^-^",
+                          "prompt": {},
+                          "answer": None,
+                          "function": None,
+                          "iteration": 0,
+                          "file_name": "instruction.txt",
+                          "max_iteration": 0
+                      },
+                      {
+                          "notification": "Your application will be available in Cyoda Platform github space https://github.com/Cyoda-platform/quart-client-template",
+                          "prompt": {},
+                          "answer": None,
+                          "function": None,
+                          "iteration": 0,
+                          "file_name": "instruction.txt",
+                          "max_iteration": 0
+                      },
+
+                      {
+                          "notification": "We will be doing our best to help you build your application and deploy it to Cyoda Cloud",
+                          "prompt": {},
+                          "answer": None,
+                          "function": None,
+                          "iteration": 0,
+                          "file_name": "instruction.txt",
+                          "max_iteration": 0
+                      },
+                      {"notification": "Hello! Welcome to Cyoda application builder! ",
+                       "prompt": {},
+                       "answer": None,
+                       "function": None,
+                       "iteration": 0,
+                       "file_name": "instruction.txt",
+                       "max_iteration": 0
+                       }]
+    new_questions = queue.Queue()
+    while new_questions_stack:
+        new_questions.put(new_questions_stack.pop())
     chat = {
         "user_id": user_id,
         "chat_id": generate_uuid(),
         "date": "2023-11-07T12:00:00Z",
         "last_modified": "2023-11-07T12:00:00Z",
-        "questions_queue": {"new_questions": queue.Queue(), "asked_questions": queue.Queue()},
+        "questions_queue": {"new_questions": new_questions, "asked_questions": queue.Queue()},
         "chat_flow": {"current_flow": copy.deepcopy(app_building_stack), "finished_flow": []},
         "name": name,
         "description": description
@@ -309,11 +350,8 @@ async def add_chat():
                                            entity_model="chat",
                                            entity_version=ENTITY_VERSION,
                                            entity=chat)
-    await process_dialogue_script(auth_header, technical_id)
+    asyncio.create_task(process_dialogue_script(auth_header, technical_id))
     return jsonify({"message": "Chat created", "technical_id": technical_id}), 200
-
-
-
 
 
 # polling for new questions here
@@ -335,7 +373,10 @@ async def get_question(technical_id):
                                    meta={})
         return jsonify({"questions": questions_to_user}), 200
     except queue.Empty:
-        return jsonify({"questions": None}), 204  # No Content
+        return jsonify({"questions": []}), 200  # No Content
+    except Exception as e:
+        logger.exception(e)
+        return jsonify({"questions": []}), 200  # No Content
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/text-questions', methods=['POST'])
