@@ -36,9 +36,9 @@ def find_and_import_workflows():
 # Run the function to populate process_dispatch
 find_and_import_workflows()
 
-def dispatch_function(event, chat):
+def dispatch_function(token, event, chat):
     if event["function"]["name"] in process_dispatch:
-        response = process_dispatch[event["function"]["name"]](cyoda_token, event, chat)
+        response = process_dispatch[event["function"]["name"]](token, event, chat)
     else:
         raise ValueError(f"Unknown processing step: {event["function"]["name"]}")
     return response
