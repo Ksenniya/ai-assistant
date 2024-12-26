@@ -64,6 +64,8 @@ def repeat_iteration(_event, result):
         can_proceed = None
     # Construct the condition piece by piece for clarity
     has_valid_can_proceed = (can_proceed is not None)
+    if has_valid_can_proceed:
+        can_proceed = False
     needs_initial_iteration = (iteration == 0 and max_iteration > 0)
     cannot_proceed = (can_proceed is False or needs_initial_iteration)
     has_remaining_iterations = (iteration < max_iteration)

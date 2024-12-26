@@ -100,60 +100,28 @@ def parse_workflow_json(result: str) -> str:
     # Return result as-is if it's neither a dictionary nor a valid string format
     return result
 
-# def validate_result(parsed_result: str, file_path: str, schema: Optional[str]) -> str:
-#     if file_path:
-#         try:
-#             with open(file_path, "r") as schema_file:
-#                 schema = json.load(schema_file)
-#         except (FileNotFoundError, json.JSONDecodeError) as e:
-#             logger.error(f"Error reading schema file {file_path}: {e}")
-#             raise
-#
-#     try:
-#         json_data = json.loads(parsed_result)
-#         normalized_json_data = _normalize_boolean_json(json_data)
-#         validate(instance=normalized_json_data, schema=schema)
-#         logger.info("JSON validation successful.")
-#         return normalized_json_data
-#     except jsonschema.exceptions.ValidationError as err:
-#         logger.error(f"JSON validation failed: {err.message}")
-#         raise
-#     except json.JSONDecodeError as e:
-#         logger.error(f"Failed to decode JSON: {e}")
-#         raise
-
-
-def validate_result(parsed_result: str, file_path: str) -> bool:
-    try:
-        with open(file_path, "r") as schema_file:
-            schema = json.load(schema_file)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        logger.error(f"Error reading schema file {file_path}: {e}")
-        raise
+def validate_result(parsed_result: str, file_path: str, schema: Optional[str]) -> str:
+    if file_path:
+        try:
+            with open(file_path, "r") as schema_file:
+                schema = json.load(schema_file)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.error(f"Error reading schema file {file_path}: {e}")
+            raise
 
     try:
         json_data = json.loads(parsed_result)
-        validator = jsonschema.Draft7Validator(schema)
-        errors = sorted(validator.iter_errors(json_data), key=lambda e: e.path)
-
-        if errors:
-            error_messages = []
-            for error in errors:
-                error_messages.append(
-                    f"Message: {error.message}\n"
-                    f"Schema path: {'.'.join(map(str, error.schema_path))}\n"
-                    f"Instance path: {'.'.join(map(str, error.path))}"
-                )
-            full_error_message = "\n\n".join(error_messages)
-            logger.error(f"JSON validation failed:\n{full_error_message}")
-            raise jsonschema.exceptions.ValidationError(full_error_message)
-
+        normalized_json_data = _normalize_boolean_json(json_data)
+        validate(instance=normalized_json_data, schema=schema)
         logger.info("JSON validation successful.")
-        return True
-
+        return normalized_json_data
+    except jsonschema.exceptions.ValidationError as err:
+        logger.error(f"JSON validation failed: {err.message}")
+        raise
     except json.JSONDecodeError as e:
         logger.error(f"Failed to decode JSON: {e}")
         raise
+
 
 def get_env_var(name: str) -> str:
     value = os.getenv(name)
