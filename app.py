@@ -337,7 +337,6 @@ async def add_chat():
         new_questions.put(new_questions_stack.pop())
     chat = {
         "user_id": user_id,
-        "chat_id": generate_uuid(),
         "date": "2023-11-07T12:00:00Z",
         "last_modified": "2023-11-07T12:00:00Z",
         "questions_queue": {"new_questions": new_questions, "asked_questions": queue.Queue()},
@@ -345,11 +344,19 @@ async def add_chat():
         "name": name,
         "description": description
     }
-    logger.info("chat_id=" + str(chat["chat_id"]))
     technical_id = entity_service.add_item(token=auth_header,
                                            entity_model="chat",
                                            entity_version=ENTITY_VERSION,
                                            entity=chat)
+    chat = _get_chat_for_user(auth_header, technical_id)
+    chat["chat_id"] = technical_id
+    entity_service.update_item(token=auth_header,
+                               entity_model="chat",
+                               entity_version=ENTITY_VERSION,
+                               technical_id=technical_id,
+                               entity=chat,
+                               meta={})
+    logger.info("chat_id=" + str(chat["chat_id"]))
     asyncio.create_task(process_dialogue_script(auth_header, technical_id))
     return jsonify({"message": "Chat created", "technical_id": technical_id}), 200
 

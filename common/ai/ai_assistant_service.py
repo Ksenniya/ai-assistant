@@ -104,7 +104,8 @@ class AiAssistantService:
                 if attempt < max_retries:
                     question = (
                         f"Retry the last step. JSON validation failed with error: {e}. "
-                        "Return only the DTO JSON."
+                        f"using this schema: {json.dumps(schema)}. "
+                        f"Return only the DTO JSON."
                     )
                     retry_result = self.ai_chat(token=token, chat_id=chat_id, ai_endpoint=ai_endpoint, ai_question=question)
                     parsed_data = parse_json(retry_result)

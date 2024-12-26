@@ -154,8 +154,7 @@ app_building_stack = [{"question": "Finished",
                                "properties": {
                                    "can_proceed": {
                                        "type": "boolean",
-                                       "description": "Return false if the user had any suggestions to improve the design and you need the user to validate the new design.  Return false if this is the first time the user was asked this question and needs to be asked to validate your design - maybe the user can contribute to your design. Return true if the user explicitly approves your design."
-                                   },
+                                       "description": "Return false"},
                                    "entities": ENTITIES_DESIGN
                                },
                                "required": [
@@ -217,8 +216,7 @@ app_building_stack = [{"question": "Finished",
                                "properties": {
                                    "can_proceed": {
                                        "type": "boolean",
-                                       "description": "Return true if this requirement is sufficient. Return false if you have more questions to ask"
-                                   },
+                                       "description": "Return false"},
                                    "questions_to_answer": {
                                        "type": "array",
                                        "items": {
@@ -337,8 +335,7 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                         "properties": {
                                             "can_proceed": {
                                                 "type": "boolean",
-                                                "description": "Return true if the user liked your entity design and is ok to proceed to the next step. Return false if the user asked for any improvements - you incorporated them and now need validation from the user."
-                                            },
+                                                "description": "Return false"},
                                             "entity": {
                                                 "type": "object",
                                                 "properties": {},
@@ -498,8 +495,7 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                             "properties": {
                                                 "can_proceed": {
                                                     "type": "boolean",
-                                                    "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are happy with the code and you can proceed to the next step."
-                                                },
+                                                    "description": "Return false"},
                                                 "code": {
                                                     "type": "string",
                                                     "description": "working code with tests"
@@ -639,7 +635,7 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                   # Generate the processor functions
                                   {"question": None,
                                    "prompt": {
-                                       "text": f"Generate the scheduler file for {entity.get("entity_name")}  based on the user suggestions if there are any, if not you can proceed. Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object! This function should save a job entity with data model $data to cyoda. Besides, it should not do any logic. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. User says: ",
+                                       "text": f"Generate the scheduler file for {entity.get("entity_name")}  based on the user suggestions if there are any, if not you can proceed. Example response should be like {{\"code\": \"all code here\"}} where code has a string value, not an object! This function should save a job entity with data model $data to cyoda. Besides, it should not do any logic. Also generate main function with entry point so that the user can do end-to-end test. User says: ",
                                        "schema": {
                                            "$schema": "http://json-schema.org/draft-07/schema#",
                                            "title": "Processors functions",
@@ -707,7 +703,7 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                                  "properties": {
                                                      "can_proceed": {
                                                          "type": "boolean",
-                                                         "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are satisfied with the code and you can proceed to the next step."
+                                                         "description": "Return false"
                                                      },
                                                      "code": {
                                                          "type": "string"
@@ -809,7 +805,7 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                              "properties": {
                                                  "can_proceed": {
                                                      "type": "boolean",
-                                                     "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are satisfied with the code and you can proceed to the next step."
+                                                     "description": "Return false"
                                                  },
                                                  "code": {
                                                      "type": "string"
@@ -910,8 +906,7 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                              "properties": {
                                                  "can_proceed": {
                                                      "type": "boolean",
-                                                     "description": "Return false if the user asked for any improvements - you need to incorporate them and validate with the user first. Return true if user explicitly identifies they are satisfied with the code and you can proceed to the next step."
-                                                 },
+                                                     "description": "Return false"},
                                                  "code": {
                                                      "type": "string"
                                                  }
@@ -1026,8 +1021,7 @@ external_datasource_stack = lambda entity: [{"question": None,
                                                      "properties": {
                                                          "can_proceed": {
                                                              "type": "boolean",
-                                                             "description": "Return false if this is the first time the user was asked this question and needs to be asked to validate your design - maybe the user can contribute to your design. Return true if the user explicitly approves your design."
-                                                         },
+                                                             "description": "Return false"},
                                                          "code": {
                                                              "type": "string",
                                                              "description": "working code with tests"
@@ -1058,8 +1052,7 @@ external_datasource_stack = lambda entity: [{"question": None,
                                                      "properties": {
                                                          "can_proceed": {
                                                              "type": "boolean",
-                                                             "description": "Return false if this is the first time the user was asked this question and needs to be asked to validate your design - maybe the user can contribute to your design. Return true if the user explicitly approves your design."
-                                                         },
+                                                             "description": "Return false"},
                                                          "summary": {
                                                              "type": "string",
 
