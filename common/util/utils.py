@@ -14,6 +14,12 @@ from common.config.config import PROJECT_DIR, REPOSITORY_NAME
 
 logger = logging.getLogger(__name__)
 
+class ValidationErrorException(Exception):
+    """Custom exception for validation errors."""
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
+
 
 def get_user_history_answer(response):
     answer = response.get('message', '') if response and isinstance(response, dict) else ''
@@ -100,7 +106,7 @@ def parse_workflow_json(result: str) -> str:
     # Return result as-is if it's neither a dictionary nor a valid string format
     return result
 
-def validate_result(parsed_result: str, file_path: str, schema: Optional[str]) -> str:
+def validate_result(data: str, file_path: str, schema: Optional[str]) -> str:
     if file_path:
         try:
             with open(file_path, "r") as schema_file:
@@ -110,18 +116,62 @@ def validate_result(parsed_result: str, file_path: str, schema: Optional[str]) -
             raise
 
     try:
-        json_data = json.loads(parsed_result)
+        parsed_data = parse_json(data)
+        json_data = json.loads(parsed_data)
         normalized_json_data = _normalize_boolean_json(json_data)
         validate(instance=normalized_json_data, schema=schema)
         logger.info("JSON validation successful.")
         return normalized_json_data
     except jsonschema.exceptions.ValidationError as err:
-        logger.error(f"JSON validation failed: {err.message}")
-        raise
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to decode JSON: {e}")
-        raise
+        logger.error(f"JSON schema validation failed: {err.message}")
+        raise ValidationErrorException(message = f"JSON schema validation failed: {err}, {err.message}")
+    except json.JSONDecodeError as err:
+        logger.error(f"Failed to decode JSON: {err}")
+        try:
+            parsed_data = parse_json(data)
+            errors = consolidate_json_errors(parsed_data)
+        except Exception as e:
+            logger.error(f"Failed to consolidate JSON errors: {e}")
+            errors = [str(e)]
+        raise ValidationErrorException(message = f"Failed to decode JSON: {err}, {err.msg}, {errors} . Please make sure the json returned is correct and aligns with json formatting rules. make sure you're using quotes for string values, including None")
+    except Exception as err:
+        logger.error(f"Unexpected error during JSON validation: {err}")
+        raise ValidationErrorException(message = f"Unexpected error during JSON validation: {err}")
 
+
+def consolidate_json_errors(json_str):
+    errors = []
+
+    # Try to parse the JSON string
+    try:
+        json_data = json.loads(json_str)
+    except json.JSONDecodeError as e:
+        errors.append(f"JSONDecodeError: {e}")
+
+        # Extract the problematic part of the JSON string
+        error_pos = e.pos
+        error_line = json_str.count('\n', 0, error_pos) + 1
+        error_col = error_pos - json_str.rfind('\n', 0, error_pos)
+
+        errors.append(f"Error at line {error_line}, column {error_col}")
+
+        # Try to find the context around the error
+        context_start = max(0, error_pos - 20)
+        context_end = min(len(json_str), error_pos + 20)
+        context = json_str[context_start:context_end]
+        errors.append(f"Context around error: {context}")
+
+        # Attempt to fix common JSON issues
+        # Example: Fixing unescaped quotes
+        fixed_json_str = re.sub(r'(?<!\\)"', r'\"', json_str)
+
+        try:
+            json_data = json.loads(fixed_json_str)
+            errors.append("JSON was successfully parsed after fixing unescaped quotes.")
+        except json.JSONDecodeError as e:
+            errors.append("Failed to fix JSON after attempting to fix unescaped quotes.")
+
+    return errors
 
 def get_env_var(name: str) -> str:
     value = os.getenv(name)
