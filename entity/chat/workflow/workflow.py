@@ -5,7 +5,7 @@ import subprocess
 
 from common.config.config import MOCK_AI, CYODA_AI_API, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO, \
     REPOSITORY_URL, WORKFLOW_AI_API
-from common.util.utils import read_file, get_project_file_name, parse_json, parse_json_v1
+from common.util.utils import read_file, get_project_file_name, parse_json, parse_workflow_json
 from entity.chat.data.data import scheduler_stack, api_request_stack, \
     external_datasource_stack, workflow_stack, entity_stack, processors_stack
 from entity.chat.workflow.helper_functions import _save_file, _chat, _sort_entities, _send_notification, \
@@ -36,7 +36,8 @@ def refresh_context(token, _event, chat):
     contents = _build_context_from_project_files(chat=chat, files=_event["context"]["files"],
                                                  excluded_files=_event["context"].get("excluded_files"))
     _event.setdefault('function', {}).setdefault("prompt", {})
-    _event["function"]["prompt"]["text"] = f"Please remember these files contents and reuse later: {json.dumps(contents)} . Do not do any mapping logic - it is not relevant. Just remember the code and the application design to reuse in your future application building. Return confirmation that you remembered everything"
+    _event["function"]["prompt"][
+        "text"] = f"Please remember these files contents and reuse later: {json.dumps(contents)} . Do not do any mapping logic - it is not relevant. Just remember the code and the application design to reuse in your future application building. Return confirmation that you remembered everything"
     _chat(chat=chat, _event=_event, token=token, ai_endpoint=CYODA_AI_API, chat_id=chat["chat_id"])
 
 
@@ -104,14 +105,41 @@ def generate_cyoda_workflow(token, _event, chat):
     if MOCK_AI == "true":
         return
     try:
-        if (_event.get("entity").get("entity_workflow") and _event.get("entity").get("entity_workflow").get("transitions")):
-            ai_question = f"what workflow could you recommend for this sketch: {json.dumps(_event.get("entity").get("entity_workflow"))}. All transitions automated, no criteria needed, only externalized processors allowed, calculation node = {chat["chat_id"]}  , .  Return only json without any comments."
-            resp = ai_service.ai_chat(token=token, chat_id=chat["chat_id"], ai_endpoint=WORKFLOW_AI_API, ai_question=ai_question)
-            workflow = parse_json_v1(resp)
-            _save_file(chat_id = chat["chat_id"], data = workflow, item = _event["file_name"])
+        if (_event.get("entity").get("entity_workflow") and _event.get("entity").get("entity_workflow").get(
+                "transitions")):
+            ai_question = f"what workflow could you recommend for this sketch: {json.dumps(_event.get("entity").get("entity_workflow"))}. All transitions automated, no criteria needed, only externalized processors allowed, calculation node = {chat["chat_id"]}  , calculation_response_timeout_ms = 120000 .  Return only json without any comments."
+            resp = ai_service.ai_chat(token=token, chat_id=chat["chat_id"], ai_endpoint=WORKFLOW_AI_API,
+                                      ai_question=ai_question)
+            workflow = parse_workflow_json(resp)
+            workflow_json = json.loads(workflow)
+            workflow_json["workflow_criterias"] = {
+                "externalized_criterias": [
+
+                ],
+                "condition_criterias": [
+                    {
+                        "name": _event.get("entity").get("entity_name"),
+                        "description": "Workflow criteria",
+                        "condition": {
+                            "group_condition_operator": "AND",
+                            "conditions": [
+                                {
+                                    "field_name": "entityModelName",
+                                    "is_meta_field": True,
+                                    "operation": "equals",
+                                    "value": _event.get("entity").get("entity_name"),
+                                    "value_type": "strings"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+            _save_file(chat_id=chat["chat_id"], data=json.dumps(workflow_json), item=_event["file_name"])
     except Exception as e:
         logger.error(f"Error generating workflow: {e}")
         logger.exception("Error generating workflow")
+
 
 def main():
     if __name__ == "__main__":
