@@ -2,7 +2,7 @@ import json
 import logging
 
 from common.config.config import CYODA_AI_URL, MOCK_AI, CYODA_AI_API, WORKFLOW_AI_API, CONNECTION_AI_API, RANDOM_AI_API
-from common.util.utils import parse_json, validate_result, send_post_request
+from common.util.utils import parse_json, validate_result, send_post_request, ValidationErrorException
 
 API_V_CONNECTIONS_ = "api/v1/connections"
 API_V_CYODA_ = "api/v1/cyoda"
@@ -97,14 +97,14 @@ class AiAssistantService:
                 parsed_data = validate_result(parsed_data, '', schema)
                 logger.info(f"JSON validation successful on attempt {attempt + 1}.")
                 return parsed_data
-            except Exception as e:
+            except ValidationErrorException as e:
                 logger.warning(
-                    f"JSON validation failed on attempt {attempt + 1} with error: {e}"
+                    f"JSON validation failed on attempt {attempt + 1} with error: {e.message}"
                 )
                 if attempt < max_retries:
                     question = (
-                        f"Retry the last step. JSON validation failed with error: {e}. "
-                        f"using this schema: {json.dumps(schema)}. "
+                        f"Retry the last step. JSON validation failed with error: {e.message}. "
+                        f"using this json schema: {json.dumps(schema)}. "
                         f"Return only the DTO JSON."
                     )
                     retry_result = self.ai_chat(token=token, chat_id=chat_id, ai_endpoint=ai_endpoint, ai_question=question)
