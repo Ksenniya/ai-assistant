@@ -76,7 +76,7 @@ def process_stacks(data):
               external_datasource_stack({})]
     for single_stack in stacks:
         for item in single_stack:
-            if item.get('prompt'):
+            if item.get('prompt') and item.get('prompt').get('schema'):
                 prompt_text = item['prompt']['text']
                 mock_data = generate_data_from_schema(item['prompt']['schema'])
                 data[prompt_text[:15]] = mock_data

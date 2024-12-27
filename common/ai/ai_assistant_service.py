@@ -131,5 +131,5 @@ class AiAssistantService:
             "return_object": "random",
             "chat_id": f"{chat_id}"
         })
-        resp = send_post_request(token, CYODA_AI_URL, "%s/chat" % API_V_CONNECTIONS_, data)
+        resp = send_post_request(token, CYODA_AI_URL, "%s/chat" % API_V_RANDOM_, data)
         return resp.json()
