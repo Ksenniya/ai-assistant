@@ -357,7 +357,7 @@ async def add_chat():
                                entity=chat,
                                meta={})
     logger.info("chat_id=" + str(chat["chat_id"]))
-    asyncio.create_task(process_dialogue_script(auth_header, technical_id))
+    await process_dialogue_script(auth_header, technical_id)
     return jsonify({"message": "Chat created", "technical_id": technical_id}), 200
 
 
