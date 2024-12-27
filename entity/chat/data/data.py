@@ -328,25 +328,7 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                {"question": None,
                                 "prompt": {
                                     "text": f"Improve the data model for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. User says: ",
-                                    "schema": {
-                                        "$schema": "http://json-schema.org/draft-07/schema#",
-                                        "title": "Improved Entity entity",
-                                        "type": "object",
-                                        "properties": {
-                                            "can_proceed": {
-                                                "type": "boolean",
-                                                "description": "Return false"},
-                                            "entity": {
-                                                "type": "object",
-                                                "properties": {},
-                                                "required": []
-                                            }
-                                        },
-                                        "required": [
-                                            "can_proceed",
-                                            "entity"
-                                        ]
-                                    }
+
                                 },
                                 "answer": None,
                                 "function": None,
@@ -366,21 +348,7 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                 "max_iteration": 0},
                                {"question": None,
                                 "prompt": {
-                                    "text": f"Generate example data json (data model) for entity {entity.get("entity_name")}. This is NOT related to entity design and should be random sample data that can be mock data returned from a datasource or data that reflects business logic or the data that is specified by the user. Base your answer on the user input if any: ",
-                                    "schema": {
-                                        "$schema": "http://json-schema.org/draft-07/schema#",
-                                        "title": "Entity data",
-                                        "type": "object",
-                                        "properties": {
-                                            "entity": {
-                                                "type": "object",
-                                                "description": "json object that represents example data"
-                                            }
-                                        },
-                                        "required": [
-                                            "entity"
-                                        ]
-                                    }
+                                    "text": f"Generate example data json (data model) for entity {entity.get("entity_name")}. This is NOT related to entity design and should be random sample data that can be mock data returned from a datasource or data that reflects business logic or the data that is specified by the user. Base your answer on the user input if any: "
                                 },
                                 "answer": None,
                                 "function": None,
