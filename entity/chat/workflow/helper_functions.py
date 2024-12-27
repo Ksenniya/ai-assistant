@@ -205,8 +205,9 @@ def _process_data(data):
     if isinstance(data, str):
         try:
             # Try to parse as JSON
+            data = parse_json(data)
             data = json.loads(data)
-        except json.JSONDecodeError:
+        except Exception as e:
             # If it's not valid JSON, treat it as plain string
             return data
 
@@ -301,6 +302,6 @@ if __name__ == "__main__":
 def _save_result_to_file( chat, _event, data):
     file_name = _event.get("file_name")
     if file_name:
-        _save_file(chat_id=chat["chat_id"], data=json.dumps(data), item=file_name)
+        _save_file(chat_id=chat["chat_id"], data=data, item=file_name)
         notification_text = f"^_^, I've pushed the changes to {file_name} . Could you please have a look 😸"
         _send_notification(chat=chat, event=_event, notification_text=notification_text)

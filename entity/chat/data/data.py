@@ -327,7 +327,7 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                # Improve the entity model
                                {"question": None,
                                 "prompt": {
-                                    "text": f"Improve the data model for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. User says: ",
+                                    "text": f"Improve the data model for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Return only json, any non json value will result in error, no comments required. User says: ",
 
                                 },
                                 "answer": None,
@@ -348,7 +348,7 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                 "max_iteration": 0},
                                {"question": None,
                                 "prompt": {
-                                    "text": f"Generate example data json (data model) for entity {entity.get("entity_name")}. This is NOT related to entity design and should be random sample data that can be mock data returned from a datasource or data that reflects business logic or the data that is specified by the user. Base your answer on the user input if any: "
+                                    "text": f"Generate example data json (data model) for entity {entity.get("entity_name")}. This is NOT related to entity design and should be random sample data that can be mock data returned from a datasource or data that reflects business logic or the data that is specified by the user. Return only json, any non json value will result in error, no comments required. Base your answer on the user input if any: "
                                 },
                                 "answer": None,
                                 "function": None,
