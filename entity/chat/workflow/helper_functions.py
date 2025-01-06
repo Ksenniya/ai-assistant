@@ -121,7 +121,8 @@ def _mock_ai(prompt_text):
 
 
 def _get_event_template(question, notification, answer, prompt, event):
-    return {
+    # Predefined keys for the final JSON structure
+    final_json = {
         "question": question,  # Sets the provided question
         "prompt": prompt,  # Sets the provided prompt
         "notification": notification,
@@ -135,6 +136,13 @@ def _get_event_template(question, notification, answer, prompt, event):
         "file_name": event.get('file_name', ''),
         "context": event.get('context', {})
     }
+
+    # Iterate through additional key-value pairs in the event object
+    for key, value in event.items():
+        if key not in final_json:  # Only add key-value pairs not already in final_json
+            final_json[key] = value
+
+    return final_json
 
 
 def _save_file(chat_id, data, item) -> str:

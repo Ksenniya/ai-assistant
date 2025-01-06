@@ -10,12 +10,11 @@ from quart import Quart, request, jsonify, send_from_directory, websocket
 from quart_cors import cors
 from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX, API_URL
 from common.exception.exceptions import ChatNotFoundException, UnauthorizedAccessException
-from common.util.utils import clean_formatting, generate_uuid, send_get_request, git_pull, read_file, \
+from common.util.utils import clean_formatting, send_get_request, git_pull, read_file, \
     get_project_file_name
-from entity.chat.data.data import app_building_stack
+from entity.chat.data.data import app_building_stack, APP_BUILDER_FLOW
 from logic.logic import process_dialogue_script
 from logic.init import ai_service, cyoda_token, entity_service
-from logic.notifier import clients_queue
 
 PUSH_NOTIFICATION = "push_notification"
 APPROVE = "approved"
@@ -192,7 +191,7 @@ def rollback_dialogue_script(technical_id, auth_header, chat):
     return jsonify({"message": "Answer received"}), 200
 
 
-def _submit_answer_helper(technical_id, answer, auth_header, chat):
+async def _submit_answer_helper(technical_id, answer, auth_header, chat):
     question_queue = chat["questions_queue"]["new_questions"]
     if not question_queue.empty():
         return jsonify({
@@ -216,8 +215,15 @@ def _submit_answer_helper(technical_id, answer, auth_header, chat):
                                technical_id=technical_id,
                                entity=chat,
                                meta={})
-    asyncio.create_task(process_dialogue_script(auth_header, technical_id))
-    return jsonify({"message": "Answer received"}), 200
+    #asyncio.create_task(process_dialogue_script(auth_header, technical_id))
+    #return jsonify({"message": "Answer received"}), 200
+    await process_dialogue_script(auth_header, technical_id)
+    return await poll_questions(auth_header, chat, question_queue, technical_id)
+
+@app.route(API_PREFIX + '/chat-flow', methods=['GET'])
+@auth_required
+async def get_chat_flow():
+    return jsonify(APP_BUILDER_FLOW)
 
 
 @app.route(API_PREFIX + '/chats', methods=['GET'])
@@ -368,6 +374,10 @@ async def get_question(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = _get_chat_for_user(auth_header, technical_id)
     question_queue = chat["questions_queue"]["new_questions"]
+    return await poll_questions(auth_header, chat, question_queue, technical_id)
+
+
+async def poll_questions(auth_header, chat, question_queue, technical_id):
     try:
         questions_to_user = []
         while not question_queue.empty():
@@ -418,7 +428,7 @@ async def push_notify(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = _get_chat_for_user(auth_header, technical_id)
     git_pull(chat['chat_id'])
-    return _submit_answer_helper(technical_id, PUSH_NOTIFICATION, auth_header, chat)
+    return await _submit_answer_helper(technical_id, PUSH_NOTIFICATION, auth_header, chat)
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/approve', methods=['POST'])
@@ -426,7 +436,7 @@ async def push_notify(technical_id):
 async def approve(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = _get_chat_for_user(auth_header, technical_id)
-    return _submit_answer_helper(technical_id, APPROVE, auth_header, chat)
+    return await _submit_answer_helper(technical_id, APPROVE, auth_header, chat)
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/rollback', methods=['POST'])
@@ -444,7 +454,7 @@ async def submit_answer_text(technical_id):
     chat = _get_chat_for_user(auth_header, technical_id)
     req_data = await request.get_json()
     answer = req_data.get('answer')
-    return _submit_answer_helper(technical_id, answer, auth_header, chat)
+    return await _submit_answer_helper(technical_id, answer, auth_header, chat)
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/answers', methods=['POST'])
@@ -459,7 +469,7 @@ async def submit_answer(technical_id):
     # Check if a file has been uploaded
     file = await request.files
     file = file.get('file')
-    return _submit_answer_helper(technical_id, answer, auth_header, chat)
+    return await _submit_answer_helper(technical_id, answer, auth_header, chat)
 
 
 if __name__ == '__main__':
