@@ -215,10 +215,10 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat):
                                technical_id=technical_id,
                                entity=chat,
                                meta={})
-    #asyncio.create_task(process_dialogue_script(auth_header, technical_id))
-    #return jsonify({"message": "Answer received"}), 200
-    await process_dialogue_script(auth_header, technical_id)
-    return await poll_questions(auth_header, chat, question_queue, technical_id)
+    asyncio.create_task(process_dialogue_script(auth_header, technical_id))
+    return jsonify({"message": "Answer received"}), 200
+    #await process_dialogue_script(auth_header, technical_id)
+    #return await poll_questions(auth_header, chat, question_queue, technical_id)
 
 @app.route(API_PREFIX + '/chat-flow', methods=['GET'])
 @auth_required

@@ -71,7 +71,7 @@ def add_design_stack(token, _event, chat) -> list:
 def add_user_requirement(token, _event, chat):
     file_name = _event["file_name"]
     ai_question = f"Please write a detailed summary of the user requirement. Include all the necessary details specified by the user."
-    user_requirement = ai_service.ai_chat(token=token, chat_id=chat["chat_id"], ai_endpoint=WORKFLOW_AI_API,
+    user_requirement = ai_service.ai_chat(token=token, chat_id=chat["chat_id"], ai_endpoint=CYODA_AI_API,
                               ai_question=ai_question)
     _save_file(chat_id=chat["chat_id"], data=user_requirement, item=file_name)
 
