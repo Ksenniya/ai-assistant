@@ -376,12 +376,47 @@ async def get_question(technical_id):
     question_queue = chat["questions_queue"]["new_questions"]
     return await poll_questions(auth_header, chat, question_queue, technical_id)
 
-
+ # "questions": [
+ #        {
+ #            "answer": "",
+ #            "context": {},
+ #            "data": {},
+ #            "entity": {},
+ #            "file_name": "entity/app_design.json",
+ #            "flow_step": "gathering requirements",
+ #            "function": {},
+ #            "index": 0,
+ #            "iteration": 2,
+ #            "max_iteration": 15,
+ #            "notification": "^_^, I've pushed the changes to entity/app_design.json . Could you please have a look \ud83d\ude38",
+ #            "prompt": {},
+ #            "question": ""
+ #        },
+ #        {
+ #            "answer": "",
+ #            "context": {},
+ #            "data": {},
+ #            "entity": {},
+ #            "file_name": "entity/app_design.json",
+ #            "flow_step": "gathering requirements",
+ #            "function": {},
+ #            "index": 0,
+ #            "iteration": 1,
+ #            "max_iteration": 15,
+ #            "notification": "",
+ #            "prompt": {},
+ #            "question": {
+ #                "can_proceed": false,
+ #                "questions_to_answer": [
+ #                    "ToAE4WYJoCX"
+ #                ]
+ #            }
+ #        },
 async def poll_questions(auth_header, chat, question_queue, technical_id):
     try:
         questions_to_user = []
         while not question_queue.empty():
-            questions_to_user.append(question_queue.get_nowait())
+            questions_to_user.append(_process_question(question_queue.get_nowait()))
         entity_service.update_item(token=auth_header,
                                    entity_model="chat",
                                    entity_version=ENTITY_VERSION,
@@ -395,6 +430,30 @@ async def poll_questions(auth_header, chat, question_queue, technical_id):
         logger.exception(e)
         return jsonify({"questions": []}), 200  # No Content
 
+
+def _process_question(question):
+    if question.get("question") and question.get("ui_config"):
+        # Create a deep copy of the question object
+        new_question = copy.deepcopy(question)
+        result = []
+
+        # Iterating through display_keys in the ui_config
+        for key_object in new_question.get("ui_config", {}).get("display_keys", []):
+            # Extract the key from the key_object (the dictionary key)
+            if isinstance(key_object, dict):
+                for key, value in key_object.items():
+                    # Append the corresponding value from the "question" dictionary using the extracted key
+                    if key in new_question.get("question", {}):
+                        result.append(value)
+                        result.append(new_question.get("question").get(key))
+
+        # Combine the values into a single string
+        new_question["question"] = " ".join(str(item) for item in result)
+
+        return new_question
+
+    # Return the original question if conditions are not met
+    return question
 
 @app.route(API_PREFIX + '/chats/<technical_id>/text-questions', methods=['POST'])
 @auth_required
