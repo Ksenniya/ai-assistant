@@ -2,20 +2,14 @@ import logging
 from typing import Dict, Any
 
 from common.config.config import CYODA_AI_API, ENTITY_VERSION
+from common.config.conts import NOTIFICATION, QUESTION, FUNCTION, PROMPT, CAN_PROCEED
 from entity.workflow import dispatch_function
 from entity.chat.workflow.helper_functions import _get_event_template, _chat, _save_result_to_file
 from logic.init import cyoda_token, entity_service
 from logic.notifier import clients_queue
 
-QUESTION_OR_VALIDATE = "Could you please help me review my output and approve it you are happy with the result ^-^"
 
-# Constants
-CAN_PROCEED = "can_proceed"
-PROMPT = "prompt"
-ANSWER = "answer"
-FUNCTION = "function"
-QUESTION = "question"
-NOTIFICATION = "notification"
+
 # Setup logging
 logger = logging.getLogger(__name__)
 
@@ -42,7 +36,9 @@ def process_answer(token, _event: Dict[str, Any], chat) -> None:
         if repeat_iteration(_event, result):
             _event["iteration"] += 1
             stack.append(_event)
-            stack.append({QUESTION: QUESTION_OR_VALIDATE})
+            if _event.get("additional_questions"):
+                for additional_question in _event.get("additional_questions", [])[::-1]:
+                    stack.append({QUESTION: additional_question})
             stack.append(question_event)
         else:
             notification_event = _get_event_template(notification=result, event=_event, question='', answer='', prompt={})
@@ -61,15 +57,15 @@ def repeat_iteration(_event, result):
     if isinstance(result, dict):
         can_proceed = result.get(CAN_PROCEED)  # could be True, False, or None
     else:
-        can_proceed = None
-    # Construct the condition piece by piece for clarity
-    has_valid_can_proceed = (can_proceed is not None)
-    if has_valid_can_proceed:
         can_proceed = False
+    # Construct the condition piece by piece for clarity
+    # has_valid_can_proceed = (can_proceed is not None)
+    # if has_valid_can_proceed:
+    #     can_proceed = False
     needs_initial_iteration = (iteration == 0 and max_iteration > 0)
     cannot_proceed = (can_proceed is False or needs_initial_iteration)
     has_remaining_iterations = (iteration < max_iteration)
-    return has_valid_can_proceed and cannot_proceed and has_remaining_iterations
+    return cannot_proceed and has_remaining_iterations
 
 
 async def process_dialogue_script(token, technical_id) -> None:

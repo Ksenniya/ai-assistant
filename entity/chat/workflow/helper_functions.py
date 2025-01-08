@@ -2,11 +2,9 @@ import glob
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
-import time
-from uuid import UUID
-
 import black
 
 from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO
@@ -121,7 +119,8 @@ def _mock_ai(prompt_text):
 
 
 def _get_event_template(question, notification, answer, prompt, event):
-    return {
+    # Predefined keys for the final JSON structure
+    final_json = {
         "question": question,  # Sets the provided question
         "prompt": prompt,  # Sets the provided prompt
         "notification": notification,
@@ -135,6 +134,13 @@ def _get_event_template(question, notification, answer, prompt, event):
         "file_name": event.get('file_name', ''),
         "context": event.get('context', {})
     }
+
+    # Iterate through additional key-value pairs in the event object
+    for key, value in event.items():
+        if key not in final_json:  # Only add key-value pairs not already in final_json
+            final_json[key] = value
+
+    return final_json
 
 
 def _save_file(chat_id, data, item) -> str:
@@ -209,7 +215,7 @@ def _process_data(data):
             data = json.loads(data)
         except Exception as e:
             # If it's not valid JSON, treat it as plain string
-            return data
+            return comment_out_non_code(data)
 
     # If it's a dictionary or list, handle it as JSON
     if isinstance(data, dict) and 'code' in data:
@@ -217,7 +223,7 @@ def _process_data(data):
         return _format_code(data['code'])
 
     if not isinstance(data, dict) and not isinstance(data, list):
-        return str(data)
+        return comment_out_non_code(data)
 
     # Otherwise, return JSON as a formatted string
     return json.dumps(data, indent=4)
@@ -277,7 +283,7 @@ def _build_context_from_project_files(chat, files, excluded_files):
     return contents
 
 
-def main():
+def main_build_context():
     # Test parameters
     chat = {"chat_id": "8bd9a020-c073-11ef-a0cd-40c2ba0ac9eb"}
     files = ["entity/**"]
@@ -295,13 +301,98 @@ def main():
             print(file_content[:100])
 
 
-if __name__ == "__main__":
-    main()
-
-
 def _save_result_to_file( chat, _event, data):
     file_name = _event.get("file_name")
     if file_name:
         _save_file(chat_id=chat["chat_id"], data=data, item=file_name)
         notification_text = f"^_^, I've pushed the changes to {file_name} . Could you please have a look 😸"
         _send_notification(chat=chat, event=_event, notification_text=notification_text)
+
+
+def comment_out_non_code(text):
+    if '```python' in text:
+        lines = text.splitlines()
+        in_python_block = False
+        commented_lines = []
+
+        for line in lines:
+            if line.strip().startswith("```python"):
+                # Comment out the ```python line
+                commented_lines.append(f"# {line}")
+                in_python_block = True
+            elif line.strip().startswith("```") and in_python_block:
+                # Comment out the ``` line
+                commented_lines.append(f"# {line}")
+                in_python_block = False
+            elif in_python_block:
+                # Keep lines inside the Python block as-is
+                commented_lines.append(line)
+            else:
+                # Comment out lines outside the Python block
+                commented_lines.append(f"# {line}")
+
+        return "\n".join(commented_lines)
+    else:
+        return text
+
+
+
+def main():
+    input = """```python
+import requests
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class DataSourceClient:
+    BASE_URL = 'https://raw.githubusercontent.com/Cyoda-platform/cyoda-ai/refs/heads/ai-2.x/data/test-inputs/v1/connections/'
+
+    def get_london_houses(self, params=None):
+        url = f"{self.BASE_URL}london_houses.csv"
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.text
+
+    def get_paris_apartments(self, params=None):
+        url = f"{self.BASE_URL}paris_apartments.csv"
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.text
+
+    def get_new_york_condos(self, params=None):
+        url = f"{self.BASE_URL}new_york_condos.csv"
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.text
+
+def ingest_data(source_type=None):
+    client = DataSourceClient()
+    if source_type == 'london_houses':
+        data = client.get_london_houses()
+    elif source_type == 'paris_apartments':
+        data = client.get_paris_apartments()
+    elif source_type == 'new_york_condos':
+        data = client.get_new_york_condos()
+    else:
+        logger.error("Invalid source type specified.")
+        return None
+    logger.info("Data ingested successfully.")
+    return data
+
+def main():
+    source_type = 'london_houses'  # Example input, can be changed for testing
+    data = ingest_data(source_type)
+    logger.info(data)
+
+if __name__ == "__main__":
+    main()
+```
+
+Please validate the provided code to ensure it meets your requirements.
+"""
+    print(comment_out_non_code(input))
+
+
+if __name__ == "__main__":
+    main()
