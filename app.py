@@ -262,12 +262,8 @@ async def get_chat(technical_id):
     chat = _get_chat_for_user(auth_header, technical_id)
     dialogue = []
     for item in chat["chat_flow"]["finished_flow"]:
-        if item.get("question"):
-            dialogue.append({"question": item.get("question"), "answer": item.get("answer")})
-        elif item.get("answer"):
-            dialogue.append({"question": item.get("question"), "answer": item.get("answer")})
-        elif item.get("notification"):
-            dialogue.append({"question": item.get("notification"), "answer": item.get("answer")})
+        if item.get("question") or item.get("notification") or item.get("answer"):
+            dialogue.append(item)
     chats_view = {
         'technical_id': technical_id,
         'chat_id': chat['chat_id'],
