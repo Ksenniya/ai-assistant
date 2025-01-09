@@ -509,7 +509,7 @@ async def approve(technical_id):
 async def rollback(technical_id):
     auth_header = request.headers.get('Authorization')
     req_data = await request.get_json()
-    question = req_data.get('question')
+    question = req_data.get('question') if req_data else None
     chat = _get_chat_for_user(auth_header, technical_id)
     return rollback_dialogue_script(technical_id, auth_header, chat, question)
 
