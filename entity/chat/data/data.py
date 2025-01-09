@@ -164,7 +164,7 @@ app_building_stack = [{"question": "Finished",
                        "prompt": {},
                        "answer": None,
                        "function": {"name": "add_user_requirement"},
-                       "file_name": "entity/user_requirement.txt",
+                       "file_name": "entity/user_requirement.md",
                        "flow_step": APPLICATION_DESIGN_STR,
                        "iteration": 0,
                        "max_iteration": 0},
@@ -222,10 +222,10 @@ app_building_stack = [{"question": "Finished",
                       # Generate Cyoda design, based on the requirement
                       {"question": None,
                        "prompt": {
-                           "text": "Using Cyoda design json, return human readable prd document that explains the Cyoda design json and explains how it is aligned with the requirement",
+                           "text": "Using Cyoda design json, return human readable prd document that explains the Cyoda design json and explains how it is aligned with the requirement. You not only need to translate the json, but explain what is Cyoda entity data base, how event driven approach works for the specific requirement - why we do what we do, as the user will be completely new to Cyoda.",
                        },
                        "answer": None,
-                       "file_name": "entity/app_design_prd.txt",
+                       "file_name": "entity/app_design_prd.md",
                        "flow_step": APPLICATION_DESIGN_STR,
                        "function": None,
                        "iteration": 0,
@@ -530,7 +530,7 @@ workflow_stack = lambda entity: [{"notification": "Generating Cyoda design: plea
                                      "answer": None,
                                      "function": {"name": "refresh_context"},
                                      "context": {
-                                         "files": ["entity/app_design.json", "entity/user_requirement.txt"],
+                                         "files": ["entity/app_design.json", "entity/user_requirement.md"],
                                      },
                                      "iteration": 0,
                                      "flow_step": WORKFLOW_DESIGN_STR,
@@ -676,7 +676,7 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                                     "common/ai/ai_assistant_service.py",
                                                     "logic_instruction.txt",
                                                     "entity/app_design.json",
-                                                    "entity/user_requirement.txt",
+                                                    "entity/user_requirement.md",
                                                     f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
                                       },
                                       "iteration": 0,
@@ -762,7 +762,7 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                                           "common/ai/ai_assistant_service.py",
                                                           "logic_instruction.txt",
                                                           "entity/app_design.json",
-                                                          "entity/user_requirement.txt"
+                                                          "entity/user_requirement.md"
                                                           f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
                                             },
                                             "iteration": 0,
@@ -848,7 +848,7 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                                       "common/ai/ai_assistant_service.py",
                                                       "logic_instruction.txt",
                                                       "entity/app_design.json",
-                                                      "entity/user_requirement.txt"
+                                                      "entity/user_requirement.md"
                                                       f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
                                         },
                                         "iteration": 0,
@@ -933,7 +933,7 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                                       "common/ai/ai_assistant_service.py",
                                                       "logic_instruction.txt",
                                                       "entity/app_design.json",
-                                                      "entity/user_requirement.txt"
+                                                      "entity/user_requirement.md"
                                                       f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json"],
                                         },
                                         "iteration": 0,

@@ -174,13 +174,19 @@ def _submit_question_helper(chat, question):
     return jsonify({"message": result}), 200
 
 
-def rollback_dialogue_script(technical_id, auth_header, chat):
+def rollback_dialogue_script(technical_id, auth_header, chat, question):
     current_flow = chat["chat_flow"]["current_flow"]
     finished_flow = chat["chat_flow"]["finished_flow"]
     event = finished_flow.pop()
-    while event and (not event.get("function") or event.get("function").get("name") != "refresh_context"):
-        current_flow.append(event)
-        event = finished_flow.pop()
+    if question:
+        while event and event.get("question") and event.get("question") != question:
+            current_flow.append(event)
+            event = finished_flow.pop()
+    else:
+        while event and (not event.get("function") or event.get("function").get("name") != "refresh_context"):
+            current_flow.append(event)
+            event = finished_flow.pop()
+    current_flow.append(event)
     entity_service.update_item(token=auth_header,
                                entity_model="chat",
                                entity_version=ENTITY_VERSION,
@@ -502,8 +508,10 @@ async def approve(technical_id):
 @auth_required
 async def rollback(technical_id):
     auth_header = request.headers.get('Authorization')
+    req_data = await request.get_json()
+    question = req_data.get('question')
     chat = _get_chat_for_user(auth_header, technical_id)
-    return rollback_dialogue_script(technical_id, auth_header, chat)
+    return rollback_dialogue_script(technical_id, auth_header, chat, question)
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/text-answers', methods=['POST'])

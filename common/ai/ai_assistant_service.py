@@ -18,7 +18,7 @@ class AiAssistantService:
         if MOCK_AI=="true":
             return {"success": True}
         data = json.dumps({"chat_id": f"{chat_id}"})
-        endpoints = [API_V_CYODA_, API_V_WORKFLOWS_, API_V_CONNECTIONS_, API_V_RANDOM_]
+        endpoints = [API_V_CYODA_, API_V_WORKFLOWS_, API_V_RANDOM_]
         for endpoint in endpoints:
             send_post_request(token, CYODA_AI_URL, "%s/initial" % endpoint, data)
         return {"success": True}
@@ -34,6 +34,11 @@ class AiAssistantService:
         return resp.json()
 
     def init_random_chat(self, token, chat_id):
+        data = json.dumps({"chat_id": f"{chat_id}"})
+        resp = send_post_request(token, CYODA_AI_URL, "%s/initial" % API_V_RANDOM_, data)
+        return resp.json()
+
+    def init_cyoda_chat(self, token, chat_id):
         data = json.dumps({"chat_id": f"{chat_id}"})
         resp = send_post_request(token, CYODA_AI_URL, "%s/initial" % API_V_RANDOM_, data)
         return resp.json()
