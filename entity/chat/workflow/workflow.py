@@ -32,7 +32,7 @@ def add_instruction(token, _event, chat):
 
 def refresh_context(token, _event, chat):
     # clean chat history and re-initialize
-    ai_service.init_chat(token=token, chat_id=chat["chat_id"])
+    ai_service.init_cyoda_chat(token=token, chat_id=chat["chat_id"])
     contents = _build_context_from_project_files(chat=chat, files=_event["context"]["files"],
                                                  excluded_files=_event["context"].get("excluded_files"))
     _event.setdefault('function', {}).setdefault("prompt", {})
@@ -47,6 +47,10 @@ def add_design_stack(token, _event, chat) -> list:
     entry_point_to_stack = {
         "SCHEDULED": scheduler_stack,
         "API_REQUEST": api_request_stack,
+        "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA": external_datasource_stack,
+        "WORKFLOW": workflow_stack,
+        "ENTITY": entity_stack,
+        "PROCESSORS": processors_stack
     }
     sorted_entities = sorted(design["entities"], key=_sort_entities)
     reversed_design_entities = sorted_entities[::-1]
@@ -59,6 +63,11 @@ def add_design_stack(token, _event, chat) -> list:
         if entity.get("entity_workflow") and entity.get("entity_workflow").get("transitions"):
             stack.extend(processors_stack(entity))
             stack.extend(workflow_stack(entity))
+    for entity in reversed_design_entities:
+        if entity["entity_type"] == "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA":
+            stack.extend(external_datasource_stack(entity))
+        else:
+            stack.extend(entity_stack(entity))
     for entity in reversed_design_entities:
         if entity["entity_type"] == "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA":
             stack.extend(external_datasource_stack(entity))
