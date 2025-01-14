@@ -10,9 +10,10 @@ from quart import Quart, request, jsonify, send_from_directory, websocket
 from quart_cors import cors
 from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX, API_URL
 from common.exception.exceptions import ChatNotFoundException, UnauthorizedAccessException
-from common.util.utils import clean_formatting, send_get_request, git_pull, read_file, \
+from common.util.utils import clean_formatting, send_get_request, read_file, \
     get_project_file_name
 from entity.chat.data.data import app_building_stack, APP_BUILDER_FLOW
+from entity.chat.workflow.helper_functions import git_pull
 from logic.logic import process_dialogue_script
 from logic.init import ai_service, cyoda_token, entity_service
 
@@ -65,9 +66,9 @@ def auth_required(func):
         token = auth_header.split(" ")[1]
 
         # Call external service to validate the token
-        response = send_get_request(token, API_URL, "v1")
+        response = await send_get_request(token, API_URL, "v1")
 
-        if response.status_code == 401:
+        if response.get("status") == 401:
             raise UnauthorizedAccessException("Invalid token")
 
         # If the token is valid, proceed to the requested route
@@ -143,15 +144,15 @@ def _get_user_id(auth_header):
         return None
 
 
-def _get_chat_for_user(auth_header, technical_id):
+async def _get_chat_for_user(auth_header, technical_id):
     user_id = _get_user_id(auth_header)
     if not user_id:
         raise UnauthorizedAccessException()
 
-    chat = entity_service.get_item(token=auth_header,
-                                   entity_model="chat",
-                                   entity_version=ENTITY_VERSION,
-                                   technical_id=technical_id)
+    chat = await entity_service.get_item(token=auth_header,
+                                         entity_model="chat",
+                                         entity_version=ENTITY_VERSION,
+                                         technical_id=technical_id)
 
     if not chat:
         raise ChatNotFoundException()
@@ -162,37 +163,37 @@ def _get_chat_for_user(auth_header, technical_id):
     return chat
 
 
-def _submit_question_helper(chat, question):
+async def _submit_question_helper(chat, question):
     # Check if a file has been uploaded
 
     if not question:
         return jsonify({"message": "Invalid entity"}), 400
     if MOCK_AI == "true":
         return jsonify({"message": "mock ai answer"}), 200
-    result = ai_service.ai_chat(token=cyoda_token, chat_id=chat["chat_id"], ai_endpoint=CYODA_AI_API,
-                                ai_question=question)
+    result = await ai_service.ai_chat(token=cyoda_token, chat_id=chat["chat_id"], ai_endpoint=CYODA_AI_API,
+                                      ai_question=question)
     return jsonify({"message": result}), 200
 
 
-def rollback_dialogue_script(technical_id, auth_header, chat, question):
+async def rollback_dialogue_script(technical_id, auth_header, chat, question):
     current_flow = chat["chat_flow"]["current_flow"]
     finished_flow = chat["chat_flow"]["finished_flow"]
     event = finished_flow.pop()
     if question:
-        while event and event.get("question") and event.get("question") != question:
+        while finished_flow and (not event.get("question") or event.get("question") != question):
             current_flow.append(event)
             event = finished_flow.pop()
     else:
-        while event and (not event.get("function") or event.get("function").get("name") != "refresh_context"):
+        while finished_flow and (not event.get("function") or event.get("function").get("name") != "refresh_context"):
             current_flow.append(event)
             event = finished_flow.pop()
     current_flow.append(event)
-    entity_service.update_item(token=auth_header,
-                               entity_model="chat",
-                               entity_version=ENTITY_VERSION,
-                               technical_id=technical_id,
-                               entity=chat,
-                               meta={})
+    await entity_service.update_item(token=auth_header,
+                                     entity_model="chat",
+                                     entity_version=ENTITY_VERSION,
+                                     technical_id=technical_id,
+                                     entity=chat,
+                                     meta={})
     asyncio.create_task(process_dialogue_script(auth_header, technical_id))
     return jsonify({"message": "Answer received"}), 200
 
@@ -201,7 +202,7 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat):
     question_queue = chat["questions_queue"]["new_questions"]
     if not question_queue.empty():
         return jsonify({
-                           "message": "Could you please have a look at a couple of more questions before submitting your answer?"}), 400
+            "message": "Could you please have a look at a couple of more questions before submitting your answer?"}), 400
     if not answer:
         return jsonify({"message": "Invalid entity"}), 400
     stack = chat["chat_flow"]["current_flow"]
@@ -210,21 +211,22 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat):
     next_event = stack[-1]
     if answer == PUSH_NOTIFICATION:
         next_event["answer"] = clean_formatting(
-            read_file(get_project_file_name(chat['chat_id'], next_event["file_name"])))
+            await read_file(get_project_file_name(chat['chat_id'], next_event["file_name"])))
     elif answer == APPROVE:
         next_event["max_iteration"] = -1
     else:
         next_event["answer"] = clean_formatting(answer)
-    entity_service.update_item(token=auth_header,
-                               entity_model="chat",
-                               entity_version=ENTITY_VERSION,
-                               technical_id=technical_id,
-                               entity=chat,
-                               meta={})
+    await entity_service.update_item(token=auth_header,
+                                     entity_model="chat",
+                                     entity_version=ENTITY_VERSION,
+                                     technical_id=technical_id,
+                                     entity=chat,
+                                     meta={})
     asyncio.create_task(process_dialogue_script(auth_header, technical_id))
     return jsonify({"message": "Answer received"}), 200
-    #await process_dialogue_script(auth_header, technical_id)
-    #return await poll_questions(auth_header, chat, question_queue, technical_id)
+    # await process_dialogue_script(auth_header, technical_id)
+    # return await poll_questions(auth_header, chat, question_queue, technical_id)
+
 
 @app.route(API_PREFIX + '/chat-flow', methods=['GET'])
 @auth_required
@@ -239,10 +241,10 @@ async def get_chats():
     user_id = _get_user_id(auth_header)
     if not user_id:
         return jsonify({"error": "Invalid token"}), 401
-    chats = entity_service.get_items_by_condition(token=auth_header,
-                                                  entity_model="chat",
-                                                  entity_version=ENTITY_VERSION,
-                                                  condition={"key": "user_id", "value": user_id})
+    chats = await entity_service.get_items_by_condition(token=auth_header,
+                                                        entity_model="chat",
+                                                        entity_version=ENTITY_VERSION,
+                                                        condition={"key": "user_id", "value": user_id})
     chats_view = [{
         'technical_id': chat['technical_id'],
         'chat_id': chat['chat_id'],
@@ -259,7 +261,7 @@ async def get_chats():
 @auth_required
 async def get_chat(technical_id):
     auth_header = request.headers.get('Authorization')
-    chat = _get_chat_for_user(auth_header, technical_id)
+    chat = await _get_chat_for_user(auth_header, technical_id)
     dialogue = []
     for item in chat["chat_flow"]["finished_flow"]:
         if item.get("question") or item.get("notification") or item.get("answer"):
@@ -280,7 +282,7 @@ async def get_chat(technical_id):
 @auth_required
 async def delete_chat(technical_id):
     auth_header = request.headers.get('Authorization')
-    _get_chat_for_user(auth_header, technical_id)
+    await _get_chat_for_user(auth_header, technical_id)
     entity_service.delete_item(token=auth_header,
                                entity_model="chat",
                                entity_version=ENTITY_VERSION,
@@ -304,42 +306,81 @@ async def add_chat():
         return jsonify({"message": "Invalid chat name"}), 400
     # Here, handle the answer (e.g., store it, process it, etc.)
     # todo use tech id as chat id
-    new_questions_stack = [{
-                          "notification": "Please, checkout your dedicated branch. Only you and me will be contributing to it ^-^",
-                          "prompt": {},
-                          "answer": None,
-                          "function": None,
-                          "iteration": 0,
-                          "file_name": "instruction.txt",
-                          "max_iteration": 0
-                      },
-                      {
-                          "notification": "Your application will be available in Cyoda Platform github space https://github.com/Cyoda-platform/quart-client-template",
-                          "prompt": {},
-                          "answer": None,
-                          "function": None,
-                          "iteration": 0,
-                          "file_name": "instruction.txt",
-                          "max_iteration": 0
-                      },
+    new_questions_stack = [
+        {
+            "notification": "🚀 Please check out your dedicated branch! 🌿 It'll just be you and me contributing to it, so let's make it awesome together! 😄",
+            "prompt": {},
+            "answer": None,
+            "function": None,
+            "iteration": 0,
+            "file_name": "instruction.txt",
+            "max_iteration": 0
+        },
+        {
+            "notification": "🎉 Great news! Your application will soon be available on the Cyoda Platform GitHub space! 🚀 Check it out here: [Cyoda Platform GitHub](https://github.com/Cyoda-platform/quart-client-template) 😄",
+            "prompt": {},
+            "answer": None,
+            "function": None,
+            "iteration": 0,
+            "file_name": "instruction.txt",
+            "max_iteration": 0
+        },
+        {
+            "notification": "If something goes wrong 😬, don't worry—just roll back! We've got this!",
+            "prompt": {},
+            "answer": None,
+            "function": None,
+            "iteration": 0,
+            "file_name": "instruction.txt",
+            "max_iteration": 0
+        },
+        {
+            "notification": "👍 If you're happy with my work or if you'd like me to pull your changes without analyzing them, just send me an approval notification! 😄",
+            "prompt": {},
+            "answer": None,
+            "function": None,
+            "iteration": 0,
+            "file_name": "instruction.txt",
+            "max_iteration": 0
+        },
+        {
+            "notification": "📝 If you'd like me to review your update to the remote, just click the push button! I'll fetch your changes and make any adjustments if needed. 😊",
+            "prompt": {},
+            "answer": None,
+            "function": None,
+            "iteration": 0,
+            "file_name": "instruction.txt",
+            "max_iteration": 0
+        },
+        {
+            "notification": "Your branch will be ready soon 🔧 When I push my changes to the remote, I'll let you know! If you'd like to suggest any improvements, feel free to send me a message or use Canvas. I'm happy to collaborate! 😊",
+            "prompt": {},
+            "answer": None,
+            "function": None,
+            "iteration": 0,
+            "file_name": "instruction.txt",
+            "max_iteration": 0
+        },
 
-                      {
-                          "notification": "We will be doing our best to help you build your application and deploy it to Cyoda Cloud",
-                          "prompt": {},
-                          "answer": None,
-                          "function": None,
-                          "iteration": 0,
-                          "file_name": "instruction.txt",
-                          "max_iteration": 0
-                      },
-                      {"notification": "Hello! Welcome to Cyoda application builder! ",
-                       "prompt": {},
-                       "answer": None,
-                       "function": None,
-                       "iteration": 0,
-                       "file_name": "instruction.txt",
-                       "max_iteration": 0
-                       }]
+
+        {
+            "notification": "We'll do our best to support you in building your application and deploying it to Cyoda Cloud! 🌟💻 Feel free to reach out if you need any help along the way! 😊",
+            "prompt": {},
+            "answer": None,
+            "function": None,
+            "iteration": 0,
+            "file_name": "instruction.txt",
+            "max_iteration": 0
+        },
+        {"notification": "👋 Hello and welcome to the Cyoda Application Builder! 🎉 We're excited to have you on board! Let's build something amazing together! 😄 ",
+         "prompt": {},
+         "answer": None,
+         "function": None,
+         "iteration": 0,
+         "file_name": "instruction.txt",
+         "editable": True,
+         "max_iteration": 0
+         }]
     new_questions = queue.Queue()
     while new_questions_stack:
         new_questions.put(new_questions_stack.pop())
@@ -352,20 +393,20 @@ async def add_chat():
         "name": name,
         "description": description
     }
-    technical_id = entity_service.add_item(token=auth_header,
-                                           entity_model="chat",
-                                           entity_version=ENTITY_VERSION,
-                                           entity=chat)
-    chat = _get_chat_for_user(auth_header, technical_id)
+    technical_id = await entity_service.add_item(token=auth_header,
+                                                 entity_model="chat",
+                                                 entity_version=ENTITY_VERSION,
+                                                 entity=chat)
+    chat = await _get_chat_for_user(auth_header, technical_id)
     chat["chat_id"] = technical_id
-    entity_service.update_item(token=auth_header,
-                               entity_model="chat",
-                               entity_version=ENTITY_VERSION,
-                               technical_id=technical_id,
-                               entity=chat,
-                               meta={})
+    await entity_service.update_item(token=auth_header,
+                                     entity_model="chat",
+                                     entity_version=ENTITY_VERSION,
+                                     technical_id=technical_id,
+                                     entity=chat,
+                                     meta={})
     logger.info("chat_id=" + str(chat["chat_id"]))
-    await process_dialogue_script(auth_header, technical_id)
+    asyncio.create_task(process_dialogue_script(auth_header, technical_id))
     return jsonify({"message": "Chat created", "technical_id": technical_id}), 200
 
 
@@ -374,57 +415,58 @@ async def add_chat():
 @auth_required
 async def get_question(technical_id):
     auth_header = request.headers.get('Authorization')
-    chat = _get_chat_for_user(auth_header, technical_id)
+    chat = await _get_chat_for_user(auth_header, technical_id)
     question_queue = chat["questions_queue"]["new_questions"]
     return await poll_questions(auth_header, chat, question_queue, technical_id)
 
- # "questions": [
- #        {
- #            "answer": "",
- #            "context": {},
- #            "data": {},
- #            "entity": {},
- #            "file_name": "entity/app_design.json",
- #            "flow_step": "gathering requirements",
- #            "function": {},
- #            "index": 0,
- #            "iteration": 2,
- #            "max_iteration": 15,
- #            "notification": "^_^, I've pushed the changes to entity/app_design.json . Could you please have a look \ud83d\ude38",
- #            "prompt": {},
- #            "question": ""
- #        },
- #        {
- #            "answer": "",
- #            "context": {},
- #            "data": {},
- #            "entity": {},
- #            "file_name": "entity/app_design.json",
- #            "flow_step": "gathering requirements",
- #            "function": {},
- #            "index": 0,
- #            "iteration": 1,
- #            "max_iteration": 15,
- #            "notification": "",
- #            "prompt": {},
- #            "question": {
- #                "can_proceed": false,
- #                "questions_to_answer": [
- #                    "ToAE4WYJoCX"
- #                ]
- #            }
- #        },
+
+# "questions": [
+#        {
+#            "answer": "",
+#            "context": {},
+#            "data": {},
+#            "entity": {},
+#            "file_name": "entity/app_design.json",
+#            "flow_step": "gathering requirements",
+#            "function": {},
+#            "index": 0,
+#            "iteration": 2,
+#            "max_iteration": 15,
+#            "notification": "^_^, I've pushed the changes to entity/app_design.json . Could you please have a look \ud83d\ude38",
+#            "prompt": {},
+#            "question": ""
+#        },
+#        {
+#            "answer": "",
+#            "context": {},
+#            "data": {},
+#            "entity": {},
+#            "file_name": "entity/app_design.json",
+#            "flow_step": "gathering requirements",
+#            "function": {},
+#            "index": 0,
+#            "iteration": 1,
+#            "max_iteration": 15,
+#            "notification": "",
+#            "prompt": {},
+#            "question": {
+#                "can_proceed": false,
+#                "questions_to_answer": [
+#                    "ToAE4WYJoCX"
+#                ]
+#            }
+#        },
 async def poll_questions(auth_header, chat, question_queue, technical_id):
     try:
         questions_to_user = []
         while not question_queue.empty():
             questions_to_user.append(_process_question(question_queue.get_nowait()))
-        entity_service.update_item(token=auth_header,
-                                   entity_model="chat",
-                                   entity_version=ENTITY_VERSION,
-                                   technical_id=technical_id,
-                                   entity=chat,
-                                   meta={})
+        await entity_service.update_item(token=auth_header,
+                                         entity_model="chat",
+                                         entity_version=ENTITY_VERSION,
+                                         technical_id=technical_id,
+                                         entity=chat,
+                                         meta={})
         return jsonify({"questions": questions_to_user}), 200
     except queue.Empty:
         return jsonify({"questions": []}), 200  # No Content
@@ -457,38 +499,50 @@ def _process_question(question):
     # Return the original question if conditions are not met
     return question
 
+
+@app.route(API_PREFIX + '/chats/<technical_id>/notification', methods=['PUT'])
+@auth_required
+async def edit_file(technical_id):
+    auth_header = request.headers.get('Authorization')
+    chat = await _get_chat_for_user(auth_header, technical_id)
+    req_data = await request.get_json()
+    #todo
+    return jsonify({"questions": []}), 200
+
+
 @app.route(API_PREFIX + '/chats/<technical_id>/text-questions', methods=['POST'])
 @auth_required
 async def submit_question_text(technical_id):
     auth_header = request.headers.get('Authorization')
-    chat = _get_chat_for_user(auth_header, technical_id)
+    chat = await _get_chat_for_user(auth_header, technical_id)
 
     req_data = await request.get_json()
     question = req_data.get('question')
-    return _submit_question_helper(chat, question)
+    res = await _submit_question_helper(chat, question)
+    return res
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/questions', methods=['POST'])
 @auth_required
 async def submit_question(technical_id):
     auth_header = request.headers.get('Authorization')
-    chat = _get_chat_for_user(auth_header, technical_id)
+    chat = await _get_chat_for_user(auth_header, technical_id)
 
     req_data = await request.form
     req_data = req_data.to_dict()
     question = req_data.get('question')
     files = await request.files
     files = files.get('file')
-
-    return _submit_question_helper(chat, question)
+    res = await _submit_question_helper(chat, question)
+    return res
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/push-notify', methods=['POST'])
 @auth_required
 async def push_notify(technical_id):
     auth_header = request.headers.get('Authorization')
-    chat = _get_chat_for_user(auth_header, technical_id)
-    git_pull(chat['chat_id'])
+    chat = await _get_chat_for_user(auth_header, technical_id)
+    await git_pull(chat['chat_id'])
     return await _submit_answer_helper(technical_id, PUSH_NOTIFICATION, auth_header, chat)
 
 
@@ -496,7 +550,7 @@ async def push_notify(technical_id):
 @auth_required
 async def approve(technical_id):
     auth_header = request.headers.get('Authorization')
-    chat = _get_chat_for_user(auth_header, technical_id)
+    chat = await _get_chat_for_user(auth_header, technical_id)
     return await _submit_answer_helper(technical_id, APPROVE, auth_header, chat)
 
 
@@ -506,15 +560,15 @@ async def rollback(technical_id):
     auth_header = request.headers.get('Authorization')
     req_data = await request.get_json()
     question = req_data.get('question') if req_data else None
-    chat = _get_chat_for_user(auth_header, technical_id)
-    return rollback_dialogue_script(technical_id, auth_header, chat, question)
+    chat = await _get_chat_for_user(auth_header, technical_id)
+    return await rollback_dialogue_script(technical_id, auth_header, chat, question)
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/text-answers', methods=['POST'])
 @auth_required
 async def submit_answer_text(technical_id):
     auth_header = request.headers.get('Authorization')
-    chat = _get_chat_for_user(auth_header, technical_id)
+    chat = await _get_chat_for_user(auth_header, technical_id)
     req_data = await request.get_json()
     answer = req_data.get('answer')
     return await _submit_answer_helper(technical_id, answer, auth_header, chat)
@@ -524,7 +578,7 @@ async def submit_answer_text(technical_id):
 @auth_required
 async def submit_answer(technical_id):
     auth_header = request.headers.get('Authorization')
-    chat = _get_chat_for_user(auth_header, technical_id)
+    chat = await _get_chat_for_user(auth_header, technical_id)
     req_data = await request.form
     req_data = req_data.to_dict()
     answer = req_data.get('answer')
@@ -536,4 +590,4 @@ async def submit_answer(technical_id):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000, threaded = True)
+    app.run(use_reloader=False, debug=True, host='0.0.0.0', port=5000, threaded=True)

@@ -4,7 +4,7 @@ from typing import Dict, Any
 from common.config.config import CYODA_AI_API, ENTITY_VERSION
 from common.config.conts import NOTIFICATION, QUESTION, FUNCTION, PROMPT, CAN_PROCEED
 from entity.workflow import dispatch_function
-from entity.chat.workflow.helper_functions import _get_event_template, _chat, _save_result_to_file
+from entity.chat.workflow.helper_functions import get_event_template, save_result_to_file, run_chat
 from logic.init import cyoda_token, entity_service
 from logic.notifier import clients_queue
 
@@ -18,20 +18,20 @@ logger = logging.getLogger(__name__)
 #     """Enqueue a question event."""
 #     question_queue.put(event)
 
-def process_answer(token, _event: Dict[str, Any], chat) -> None:
+async def process_answer(token, _event: Dict[str, Any], chat) -> None:
     """
     Process an answer event by interacting with the chat service and managing the event stack.
     """
     stack = chat["chat_flow"]["current_flow"]
     if _event.get("iteration", 0) > _event.get("max_iteration", 0):
-        stack.append({NOTIFICATION: "Finishing iteration"})
+        stack.append({NOTIFICATION: "🎉 We're wrapping up this iteration! "})
         return
     else:
-        result = _chat(chat=chat, _event=_event, token=cyoda_token,
-                       ai_endpoint=_event.get("prompt", {}).get("api", CYODA_AI_API),
-                       chat_id=chat["chat_id"])
+        result = await run_chat(chat=chat, _event=_event, token=cyoda_token,
+                      ai_endpoint=_event.get("prompt", {}).get("api", CYODA_AI_API),
+                      chat_id=chat["chat_id"])
 
-        question_event = _get_event_template(question=result, event=_event, notification='', answer='', prompt={})
+        question_event = get_event_template(question=result, event=_event, notification='', answer='', prompt={})
 
         if repeat_iteration(_event, result):
             _event["iteration"] += 1
@@ -41,13 +41,13 @@ def process_answer(token, _event: Dict[str, Any], chat) -> None:
                     stack.append({QUESTION: additional_question})
             stack.append(question_event)
         else:
-            notification_event = _get_event_template(notification=result, event=_event, question='', answer='', prompt={})
+            notification_event = get_event_template(notification=result, event=_event, question='', answer='', prompt={})
             stack.append(notification_event)
-            stack.append({NOTIFICATION: "Finishing iteration with result: "})
+            stack.append({NOTIFICATION: "🎉 We're wrapping up this iteration with result: "})
         if _event.get("prompt", {}).get("function", ''):
-            function_event = _get_event_template(event=_event, notification='', answer='', prompt={}, question='')
-            dispatch_function(token, function_event, chat)
-        _save_result_to_file(chat=chat, _event=_event, data=result)
+            function_event = get_event_template(event=_event, notification='', answer='', prompt={}, question='')
+            await dispatch_function(token, function_event, chat)
+        await save_result_to_file(chat=chat, _event=_event, _data=result)
 
 
 def repeat_iteration(_event, result):
@@ -69,7 +69,7 @@ def repeat_iteration(_event, result):
 
 
 async def process_dialogue_script(token, technical_id) -> None:
-    chat = entity_service.get_item(token=token,
+    chat = await entity_service.get_item(token=token,
                                    entity_model="chat",
                                    entity_version=ENTITY_VERSION,
                                    technical_id=technical_id)
@@ -79,20 +79,20 @@ async def process_dialogue_script(token, technical_id) -> None:
         event = stack.pop()
         finished_stack.append(event)
         if event.get(FUNCTION):
-            dispatch_function(token, event, chat)
+            await dispatch_function(token, event, chat)
         elif event.get(PROMPT):
-            process_answer(token, event, chat)
+            await process_answer(token, event, chat)
         elif event.get(NOTIFICATION):
             chat["questions_queue"]["new_questions"].put(event)
             await clients_queue.put(technical_id)
 
-    while (stack and (stack[-1].get(QUESTION) or stack[-1].get(NOTIFICATION))):
+    while stack and (stack[-1].get(QUESTION) or stack[-1].get(NOTIFICATION)):
         event = stack.pop()
         finished_stack.append(event)
         chat["questions_queue"]["new_questions"].put(event)
         await clients_queue.put(technical_id)
 
-    entity_service.update_item(token=token,
+    await entity_service.update_item(token=token,
                                entity_model="chat",
                                entity_version=ENTITY_VERSION,
                                technical_id=technical_id,

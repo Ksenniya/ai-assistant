@@ -1,12 +1,13 @@
-import os
 import logging
-import subprocess
 import time
 import re
-import requests
-from typing import Optional
+
+import aiofiles
+from typing import Optional, Any
 import uuid
 import json
+
+import aiohttp
 import jsonschema
 from jsonschema import validate
 
@@ -106,10 +107,10 @@ def parse_workflow_json(result: str) -> str:
     # Return result as-is if it's neither a dictionary nor a valid string format
     return result
 
-def validate_result(data: str, file_path: str, schema: Optional[str]) -> str:
+async def validate_result(data: str, file_path: str, schema: Optional[str]) -> str:
     if file_path:
         try:
-            with open(file_path, "r") as schema_file:
+            async with aiofiles.open(file_path, "r") as schema_file:
                 schema = json.load(schema_file)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logger.error(f"Error reading schema file {file_path}: {e}")
@@ -173,38 +174,37 @@ def consolidate_json_errors(json_str):
 
     return errors
 
-def get_env_var(name: str) -> str:
-    value = os.getenv(name)
-    if value is None:
-        logger.warning(f"Environment variable {name} not found.")
-    return value
 
 
-def read_file(file_path: str):
+async def read_file(file_path: str):
     """Read and return JSON entity from a file."""
     try:
-        with open(file_path, 'r') as file:
-            return file.read()
+        async with aiofiles.open(file_path, 'r') as file:
+            content = await file.read()
+            return content
     except Exception as e:
         logger.error(f"Failed to read JSON file {file_path}: {e}")
-        raise
+        raise  # Re-raise the exception for further handling
 
 
-def read_json_file(file_path: str):
+async def read_json_file(file_path: str):
     try:
-        with open(file_path, "r") as file:
-            data = json.load(file)
+        async with aiofiles.open(file_path, "r") as file:
+            content = await file.read()  # Read the file content asynchronously
+            data = json.loads(content)  # Parse the content as JSON
         logger.info(f"Successfully read JSON file: {file_path}")
         return data
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         logger.error(f"File not found: {file_path}")
         raise
     except json.JSONDecodeError as e:
         logger.error(f"JSON decoding failed for file {file_path}: {e}")
         raise
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while reading the file {file_path}: {e}")
+        raise
 
-
-def send_get_request(token: str, api_url: str, path: str) -> Optional[requests.Response]:
+async def send_get_request(token: str, api_url: str, path: str) -> Optional[Any]:
     url = f"{api_url}/{path}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
@@ -212,19 +212,34 @@ def send_get_request(token: str, api_url: str, path: str) -> Optional[requests.R
         "Authorization": f"{token}",
     }
     try:
-        response = requests.get(url, headers=headers)
+        response = await send_request(headers, url, 'GET', None, None)
         # Raise an error for bad status codes
         logger.info(f"GET request to {url} successful.")
         return response
-    except requests.exceptions.HTTPError as http_err:
-        logger.error(f"HTTP error during GET request to {url}: {http_err}")
-        raise
     except Exception as err:
         logger.error(f"Error during GET request to {url}: {err}")
         raise
 
 
-def send_post_request(token: str, api_url: str, path: str, data=None, json=None) -> Optional[requests.Response]:
+async def send_request(headers, url, method, data, json):
+    async with aiohttp.ClientSession() as session:
+        if method == 'GET':
+            async with session.get(url, headers=headers) as response:
+                data = await response.json()
+        elif method == 'POST':
+            async with session.post(url, headers=headers, data=data, json=json) as response:
+                data = await response.json()
+        elif method == 'PUT':
+            async with session.put(url, headers=headers, data=data, json=json) as response:
+                data = await response.json()
+        elif method == 'DELETE':
+            async with session.delete(url, headers=headers) as response:
+                data = await response.json()
+
+    return data
+
+
+async def send_post_request(token: str, api_url: str, path: str, data=None, json=None) -> Optional[Any]:
     url = f"{api_url}/{path}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
@@ -232,19 +247,14 @@ def send_post_request(token: str, api_url: str, path: str, data=None, json=None)
         "Authorization": f"{token}",
     }
     try:
-        response = requests.post(url, headers=headers, data=data, json=json)
-        response.raise_for_status()  # Raise an error for bad status codes
-        logger.info(f"POST request to {url} successful.")
+        response = await send_request(headers, url, 'POST', data, json)
         return response
-    except requests.exceptions.HTTPError as http_err:
-        logger.error(f"HTTP error during POST request to {url}: {http_err}")
-        raise
     except Exception as err:
         logger.error(f"Error during POST request to {url}: {err}")
         raise
 
 
-def send_put_request(token: str, api_url: str, path: str, data=None, json=None) -> Optional[requests.Response]:
+async def send_put_request(token: str, api_url: str, path: str, data=None, json=None) -> Optional[Any]:
     url = f"{api_url}/{path}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
@@ -252,19 +262,15 @@ def send_put_request(token: str, api_url: str, path: str, data=None, json=None) 
         "Authorization": f"{token}",
     }
     try:
-        response = requests.put(url, headers=headers, data=data, json=json)
-        response.raise_for_status()  # Raise an error for bad status codes
+        response = await send_request(headers, url, 'PUT', data, json)
         logger.info(f"PUT request to {url} successful.")
         return response
-    except requests.exceptions.HTTPError as http_err:
-        logger.error(f"HTTP error during PUT request to {url}: {http_err}")
-        raise
     except Exception as err:
         logger.error(f"Error during PUT request to {url}: {err}")
         raise
 
 
-def send_delete_request(token: str, api_url: str, path: str) -> Optional[requests.Response]:
+async def send_delete_request(token: str, api_url: str, path: str) -> Optional[Any]:
     url = f"{api_url}/{path}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
@@ -272,13 +278,9 @@ def send_delete_request(token: str, api_url: str, path: str) -> Optional[request
         "Authorization": f"{token}",
     }
     try:
-        response = requests.delete(url, headers=headers)
-        response.raise_for_status()  # Raise an error for bad status codes
+        response = await send_request(headers, url, 'DELETE', None, None)
         logger.info(f"GET request to {url} successful.")
         return response
-    except requests.exceptions.HTTPError as http_err:
-        logger.error(f"HTTP error during GET request to {url}: {http_err}")
-        raise
     except Exception as err:
         logger.error(f"Error during GET request to {url}: {err}")
         raise
@@ -322,21 +324,6 @@ def clean_formatting(text):
 #     text = re.sub(r'[^\w\s]', '', text)
 #
 #     return text
-
-
-
-def git_pull(chat_id):
-
-    clone_dir = f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}"
-    os.chdir(clone_dir)
-    # Create a new branch with the name $chat_id
-    subprocess.run(["git", "checkout", str(chat_id)], check=True)
-    try:
-        # Push the new branch to the remote repository
-        subprocess.run(["git", "pull", "origin", str(chat_id)], check=True)
-    except Exception as e:
-        logger.error(f"Error during git push: {e}")
-        logger.exception(e)
 
 
 def get_project_file_name(chat_id, file_name):

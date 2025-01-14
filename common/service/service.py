@@ -29,47 +29,49 @@ class EntityServiceImpl(EntityService):
         # or add additional initialization logic here if needed.
         pass
 
-    def get_item(self, token: str, entity_model: str, entity_version: str, technical_id: str) -> Any:
+    async def get_item(self, token: str, entity_model: str, entity_version: str, technical_id: str) -> Any:
         """Retrieve a single item based on its ID."""
-        meta = self._repository.get_meta(token, entity_model, entity_version)
-        resp = self._repository.find_by_id(meta, technical_id)
+        meta = await self._repository.get_meta(token, entity_model, entity_version)
+        resp = await self._repository.find_by_id(meta, technical_id)
         return resp
 
-    def get_items(self, token: str, entity_model: str, entity_version: str) -> List[Any]:
+    async def get_items(self, token: str, entity_model: str, entity_version: str) -> List[Any]:
         """Retrieve multiple items based on their IDs."""
-        meta = self._repository.get_meta(token, entity_model, entity_version)
-        resp = self._repository.find_all(meta)
+        meta = await self._repository.get_meta(token, entity_model, entity_version)
+        resp = await self._repository.find_all(meta)
         return resp
 
-    def get_single_item_by_condition(self, token: str, entity_model: str, entity_version: str, condition: Any) -> List[Any]:
+    async def get_single_item_by_condition(self, token: str, entity_model: str, entity_version: str, condition: Any) -> List[Any]:
         """Retrieve multiple items based on their IDs."""
-        resp = self._find_by_criteria(token, entity_model, entity_version, condition)
+        resp = await self._find_by_criteria(token, entity_model, entity_version, condition)
         return resp[0]
 
-    def get_items_by_condition(self, token: str, entity_model: str, entity_version: str, condition: Any) -> List[Any]:
+    async def get_items_by_condition(self, token: str, entity_model: str, entity_version: str, condition: Any) -> List[Any]:
         """Retrieve multiple items based on their IDs."""
-        resp = self._find_by_criteria(token, entity_model, entity_version, condition)
+        resp = await self._find_by_criteria(token, entity_model, entity_version, condition)
         return resp
 
-    def add_item(self, token: str, entity_model: str, entity_version: str, entity: Any) -> Any:
+    async def add_item(self, token: str, entity_model: str, entity_version: str, entity: Any) -> Any:
         """Add a new item to the repository."""
-        meta = self._repository.get_meta(token, entity_model, entity_version)
-        resp = self._repository.save(meta, entity)
+        meta = await self._repository.get_meta(token, entity_model, entity_version)
+        resp = await self._repository.save(meta, entity)
         return resp
 
-    def update_item(self, token: str, entity_model: str, entity_version: str, technical_id: str, entity: Any, meta: Any) -> Any:
+    async def update_item(self, token: str, entity_model: str, entity_version: str, technical_id: str, entity: Any, meta: Any) -> Any:
         """Update an existing item in the repository."""
-        meta = meta.update(self._repository.get_meta(token, entity_model, entity_version))
-        resp = self._repository.update(meta, technical_id, entity)
+        repository_meta = await self._repository.get_meta(token, entity_model, entity_version)
+        meta = meta.update(repository_meta)
+        resp = await self._repository.update(meta, technical_id, entity)
         return resp
 
-    def _find_by_criteria(self, token, entity_model, entity_version, condition):
-        meta = self._repository.get_meta(token, entity_model, entity_version)
-        resp = self._repository.find_all_by_criteria(meta, condition)
+    async def _find_by_criteria(self, token, entity_model, entity_version, condition):
+        meta = await self._repository.get_meta(token, entity_model, entity_version)
+        resp = await self._repository.find_all_by_criteria(meta, condition)
         return resp
 
-    def delete_item(self, token: str, entity_model: str, entity_version: str, technical_id: str, meta: Any) -> Any:
+    async def delete_item(self, token: str, entity_model: str, entity_version: str, technical_id: str, meta: Any) -> Any:
         """Update an existing item in the repository."""
-        meta = meta.update(self._repository.get_meta(token, entity_model, entity_version))
-        resp = self._repository.delete_by_id(meta, technical_id)
+        repository_meta = await self._repository.get_meta(token, entity_model, entity_version)
+        meta = meta.update(repository_meta)
+        resp = await self._repository.delete_by_id(meta, technical_id)
         return resp

@@ -150,7 +150,7 @@ async def process_calc_req_event(token, data: dict, queue: asyncio.Queue):
         # Process the first or subsequent versions of the entity
         if processor_name in process_dispatch:
             logger.info(f"Processing notification entity: {data}")
-            process_event(token, data, processor_name)
+            await process_event(token, data, processor_name)
 
     except Exception as e:
         logger.error(e)

@@ -1,5 +1,19 @@
 from common.config.config import MAX_ITERATION, RANDOM_AI_API
 
+DESIGN_PLEASE_WAIT = "⚙️ Generating your Cyoda design... please wait a moment! ⏳"
+
+FILES_NOTIFICATIONS = {
+    "raw_data": {"text": "😊 Could you please provide an example of the raw data? It would be super helpful! Thanks!",
+                 "file_name": "entity/{entity_name}/connections/raw_data.json"},
+    "code": {"text": "😊 Could you please provide details for the connection functions? It would really help clarify things! Thank you!",
+             "file_name": "entity/{entity_name}/connections/connections.py"},
+    "doc": {"text": "😊 Could you please provide more details for the connection documentation? It would be super helpful! Thanks so much!",
+            "file_name": "entity/{entity_name}/connections/connections_input.md"},
+    "entity": {
+        "text": "😊 Could you please provide an example of the entity JSON? It will help us map the raw data to the entity or save the raw data as is. Thanks a lot!",
+        "file_name": "entity/{entity_name}/{entity_name}.json"}
+}
+
 LOGIC_CODE_DESIGN_STR = "additional logic code design"
 
 WORKFLOW_CODE_DESIGN_STR = "workflow code design"
@@ -169,7 +183,7 @@ app_building_stack = [{"question": "Finished",
                        "iteration": 0,
                        "max_iteration": 0},
                       # please wait
-                      {"notification": "Generating Cyoda design: please wait",
+                      {"notification": DESIGN_PLEASE_WAIT,
                        "prompt": {},
                        "answer": None,
                        "function": None,
@@ -206,7 +220,7 @@ app_building_stack = [{"question": "Finished",
                        "additional_questions": ["Would you like to improve anything in the design?"],
                        "max_iteration": MAX_ITERATION},
                       # Would you like to change anything in the design?
-                      {"question": "Would you like to change anything in the design?",
+                      {"question": "😊 Would you like to make any changes to the design? Feel free to let me know!",
                        "prompt": {},
                        "answer": None,
                        "function": None,
@@ -220,16 +234,16 @@ app_building_stack = [{"question": "Finished",
                        "flow_step": APPLICATION_DESIGN_STR,
                        "max_iteration": 0},
                       # Generate Cyoda design, based on the requirement
-                      {"question": None,
-                       "prompt": {
-                           "text": "Using Cyoda design json, return human readable prd document that explains the Cyoda design json and explains how it is aligned with the requirement. You not only need to translate the json, but explain what is Cyoda entity data base, how event driven approach works for the specific requirement - why we do what we do, as the user will be completely new to Cyoda.",
-                       },
-                       "answer": None,
-                       "file_name": "entity/app_design_prd.md",
-                       "flow_step": APPLICATION_DESIGN_STR,
-                       "function": None,
-                       "iteration": 0,
-                       "max_iteration": 0},
+                      # {"question": None,
+                      #  "prompt": {
+                      #      "text": "Using Cyoda design json, return human readable prd document that explains the Cyoda design json and explains how it is aligned with the requirement. You not only need to translate the json, but explain what is Cyoda entity data base, how event driven approach works for the specific requirement - why we do what we do, as the user will be completely new to Cyoda.",
+                      #  },
+                      #  "answer": None,
+                      #  "file_name": "entity/app_design_prd.md",
+                      #  "flow_step": APPLICATION_DESIGN_STR,
+                      #  "function": None,
+                      #  "iteration": 0,
+                      #  "max_iteration": 0},
                       {"question": None,
                        "prompt": {
                            "text": "Generate Cyoda design, based on the requirement. Do not forget to explicitly add the entities that you add in the workflow processors, and use only lowercase underscore for namings. Add workflow only where necessary. If the entity is saved in the workflow of another entity (e.g. JOB) then its source will be ENTITY_EVENT. Use minimal number of entities.",
@@ -252,7 +266,7 @@ app_building_stack = [{"question": "Finished",
                        "iteration": 0,
                        "max_iteration": 0},
                       # please wait
-                      {"notification": "Generating Cyoda design: please wait",
+                      {"notification": DESIGN_PLEASE_WAIT,
                        "prompt": {},
                        "answer": None,
                        "function": None,
@@ -287,7 +301,8 @@ app_building_stack = [{"question": "Finished",
                            }
                        },
                        "ui_config": {
-                           "display_keys": [{"questions_to_answer": "Could you please help me with these questions: "}],
+                           "display_keys": [{
+                               "questions_to_answer": "😊 Could you please help me with these questions? If you're ready to move on to the next iteration or skip this one, just click 'Approve'! 👍 : "}],
                        },
                        "file_name": "entity/app_design.json",
                        "answer": None,
@@ -298,7 +313,7 @@ app_building_stack = [{"question": "Finished",
                        "max_iteration": MAX_ITERATION},
                       # What application would you like to build
                       {
-                          "question": "What application would you like to build? Could you, please, share your ideas?",
+                          "question": "💡 What kind of application would you like to build? I'd love to hear your ideas! Feel free to share them with me! 😊",
                           "prompt": {},
                           "answer": None,
                           "function": None,
@@ -310,7 +325,7 @@ app_building_stack = [{"question": "Finished",
                               "Hello! I would like to develop an application that ingests data from a specified data source, aggregates the data, and saves it to a report. Afterward, the application should send the report to the admin's email. The data ingestion process should be scheduled to run once a day."],
                           "max_iteration": 0},
                       {
-                          "notification": "Let's begin our journey!))",
+                          "notification": "🚀 Let's kick off our journey! 😊 I'm excited to get started! ))",
                           "prompt": {},
                           "answer": None,
                           "function": None,
@@ -329,16 +344,7 @@ app_building_stack = [{"question": "Finished",
                        "iteration": 0,
                        "flow_step": GATHERING_REQUIREMENTS_STR,
                        "max_iteration": 0},
-                      {
-                          "notification": "If something goes wrong :-O, just rollback ^-^",
-                          "prompt": {},
-                          "answer": None,
-                          "function": None,
-                          "iteration": 0,
-                          "file_name": "instruction.txt",
-                          "flow_step": GATHERING_REQUIREMENTS_STR,
-                          "max_iteration": 0
-                      },
+
                       # init_chats
                       {"question": None,
                        "prompt": {},
@@ -347,37 +353,6 @@ app_building_stack = [{"question": "Finished",
                        "flow_step": GATHERING_REQUIREMENTS_STR,
                        "iteration": 0,
                        "max_iteration": 0},
-
-                      {
-                          "notification": "If you are happy with my work or you'd like me to pull your changes without analyzing them, please send me an approve notification ^-^",
-                          "prompt": {},
-                          "answer": None,
-                          "function": None,
-                          "iteration": 0,
-                          "file_name": "instruction.txt",
-                          "flow_step": GATHERING_REQUIREMENTS_STR,
-                          "max_iteration": 0
-                      },
-                      {
-                          "notification": "If you'd like me to analyze your update to remote, please let me know by clicking the push button. I will fetch your changes and adjust them if necessary",
-                          "prompt": {},
-                          "answer": None,
-                          "function": None,
-                          "iteration": 0,
-                          "file_name": "instruction.txt",
-                          "flow_step": GATHERING_REQUIREMENTS_STR,
-                          "max_iteration": 0
-                      },
-                      {
-                          "notification": "When I push my changes to remote, I will notify you. If you'd like to improve my changes, please let me know by either sending me a message or by using canvas",
-                          "prompt": {},
-                          "answer": None,
-                          "function": None,
-                          "iteration": 0,
-                          "file_name": "instruction.txt",
-                          "flow_step": GATHERING_REQUIREMENTS_STR,
-                          "max_iteration": 0
-                      },
                       # clone_repo
                       {"question": None,
                        "prompt": {},
@@ -388,7 +363,98 @@ app_building_stack = [{"question": "Finished",
                        "max_iteration": 0}
                       ]
 
-entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
+data_ingestion_stack = lambda entities: [
+    {
+        "question": None,
+        "prompt": {},
+        "answer": None,
+        "function": {"name": "generate_data_ingestion_code",
+                     "prompts": [
+                         {"EXTERNAL_SOURCES_PULL_BASED_RAW_DATA": {
+                             "text": f"Generate python code to get data from this external data source. The code should contain functions for each of the specified endpoints. Each function takes request parameters as input parameters and returns raw data as a response. Call the public function ingest_data(...). Provide a main method to test the ingest_data.",
+                             "api": RANDOM_AI_API,
+                         }
+                         },
+                         {"WEB_SCRAPING_PULL_BASED_RAW_DATA": {
+                             "text": f"Generate python code for a webscraper that collects data from this data source. Call the public function ingest_data(...). Provide a main method to test the ingest_data.",
+                             "api": RANDOM_AI_API
+                         }
+                         },
+                         {"TRANSACTIONAL_PULL_BASED_RAW_DATA": {
+                             "text": f"Generate python code to get data from this external data source. The code should contain functions for each of the specified endpoints. Each function takes request parameters as input parameters and returns raw data as a response. Call the public function ingest_data(...). Provide a main method to test the ingest_data.",
+                             "api": RANDOM_AI_API
+                         }
+                         }
+                     ]
+                     },
+        "context": {
+            "files": [],
+        },
+        "entities": entities,
+        "iteration": 0,
+        "flow_step": ENTITIES_DESIGN_STR,
+        "max_iteration": MAX_ITERATION
+    },
+    {
+        "question": f"🚀 Are you ready to start the bulk generation? Let me know when you're good to go! 😊",
+        "prompt": {},
+        "answer": None,
+        "function": None,
+        "index": 0,
+        "iteration": 0,
+        "flow_step": ENTITIES_DESIGN_STR,
+        "files_notifications": FILES_NOTIFICATIONS,
+        "max_iteration": 0},
+    {
+        "question": None,
+        "prompt": {},
+        "answer": None,
+        "function": {"name": "check_entity_definitions"},
+        "notification_text": "Please update the file contents for {file_name}",
+        "files_notifications": FILES_NOTIFICATIONS,
+        "context": {
+            "files": [],
+        },
+        "entities": entities,
+        "iteration": 0,
+        "flow_step": ENTITIES_DESIGN_STR,
+        "max_iteration": 0},
+    {
+        "question": f"😊 Could you please update the files with the necessary information? Once you're done, just click 'Approve' 👍. Thanks so much!",
+        "prompt": {},
+        "answer": None,
+        "function": None,
+        "index": 0,
+        "iteration": 0,
+        "flow_step": ENTITIES_DESIGN_STR,
+        "max_iteration": 0},
+    {
+        "question": None,
+        "prompt": {},
+        "answer": None,
+        "function": {"name": "generate_data_ingestion_entities_template"},
+        "files_notifications": FILES_NOTIFICATIONS,
+        "context": {
+            "files": [],
+        },
+        "entities": entities,
+        "iteration": 0,
+        "flow_step": ENTITIES_DESIGN_STR,
+        "max_iteration": 0},
+    {
+        "question": None,
+        "prompt": {},
+        "answer": None,
+        "function": {"name": "refresh_context"},
+        "context": {
+            "files": [],
+        },
+        "iteration": 0,
+        "flow_step": ENTITIES_DESIGN_STR,
+        "max_iteration": 0},
+]
+
+entity_stack = lambda entity: [{"notification": DESIGN_PLEASE_WAIT,
                                 "prompt": {},
                                 "answer": None,
                                 "function": None,
@@ -465,7 +531,7 @@ entity_stack = lambda entity: [{"notification": "Generating Cyoda design: please
                                    "max_iteration": 0},
                                ]
 
-workflow_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
+workflow_stack = lambda entity: [{"notification": DESIGN_PLEASE_WAIT,
                                   "prompt": {},
                                   "answer": None,
                                   "function": None,
@@ -537,7 +603,7 @@ workflow_stack = lambda entity: [{"notification": "Generating Cyoda design: plea
                                      "max_iteration": 0}
                                  ]
 
-processors_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
+processors_stack = lambda entity: [{"notification": DESIGN_PLEASE_WAIT,
                                     "prompt": {},
                                     "answer": None,
                                     "function": None,
@@ -600,7 +666,7 @@ processors_stack = lambda entity: [{"notification": "Generating Cyoda design: pl
                                        "max_iteration": 0},
                                    ]
 
-scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
+scheduler_stack = lambda entity: [{"notification": DESIGN_PLEASE_WAIT,
                                    "prompt": {},
                                    "answer": None,
                                    "function": None,
@@ -684,7 +750,7 @@ scheduler_stack = lambda entity: [{"notification": "Generating Cyoda design: ple
                                       "max_iteration": 0},
                                   ]
 
-form_submission_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
+form_submission_stack = lambda entity: [{"notification": DESIGN_PLEASE_WAIT,
                                          "prompt": {},
                                          "answer": None,
                                          "function": None,
@@ -770,7 +836,7 @@ form_submission_stack = lambda entity: [{"notification": "Generating Cyoda desig
                                             "max_iteration": 0},
                                         ]
 
-file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
+file_upload_stack = lambda entity: [{"notification": DESIGN_PLEASE_WAIT,
                                      "prompt": {},
                                      "answer": None,
                                      "function": None,
@@ -856,7 +922,7 @@ file_upload_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                         "max_iteration": 0},
                                     ]
 
-api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: please wait",
+api_request_stack = lambda entity: [{"notification": DESIGN_PLEASE_WAIT,
                                      "prompt": {},
                                      "answer": None,
                                      "function": None,
@@ -940,102 +1006,3 @@ api_request_stack = lambda entity: [{"notification": "Generating Cyoda design: p
                                         "flow_step": LOGIC_CODE_DESIGN_STR,
                                         "max_iteration": 0},
                                     ]
-
-external_datasource_stack = lambda entity: [{"question": None,
-                                             "prompt": {},
-                                             "answer": None,
-                                             "entity": entity,
-                                             "function": {"name": "save_raw_data_to_entity_file"},
-                                             "iteration": 0,
-                                             "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
-                                             "flow_step": ENTITIES_DESIGN_STR,
-                                             "max_iteration": 0},
-                                            {"question": f"Please specify the schema for {entity.get("entity_name")}.",
-                                             "prompt": {},
-                                             "answer": None,
-                                             "function": None,
-                                             "iteration": 0,
-                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
-                                             "flow_step": ENTITIES_DESIGN_STR,
-                                             "max_iteration": 0},
-                                            # please wait
-                                            {"notification": "Generating Cyoda design: please wait",
-                                             "prompt": {},
-                                             "answer": None,
-                                             "function": None,
-                                             "iteration": 0,
-                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
-                                             "flow_step": ENTITIES_DESIGN_STR,
-                                             "max_iteration": 0
-                                             },
-                                            {"question": None,
-                                             "prompt": {
-                                                 "text": f"Generate python code to get data from this external data source. The code should contain functions for each of the specified endpoints. Each function takes request parameters as input parameters and returns raw data as a response. Call the public function ingest_data(...). Provide a main method to test the ingest_data. After you return the result ask the user for validation.",
-                                                 "api": RANDOM_AI_API,
-                                             },
-                                             "answer": None,
-                                             "function": None,
-                                             "entity": entity,
-                                             "index": 0,
-                                             "iteration": 0,
-                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
-                                             "flow_step": ENTITIES_DESIGN_STR,
-                                             "additional_questions": [QUESTION_OR_VALIDATE],
-                                             "max_iteration": MAX_ITERATION
-                                             },
-                                            {"question": None,
-                                             "prompt": {
-                                                 "text": f"Generate the summary of the connection details specified by the user. After you return the result ask the user for validation.  Example response should be like {{\"summary\": \"all summary here\", \"can_proceed\": \"false\"}} where summary has a string value, not an object! ",
-                                                 "api": RANDOM_AI_API,
-                                                 "schema": {
-                                                     "$schema": "http://json-schema.org/draft-07/schema#",
-                                                     "title": "Summary of the connection details",
-                                                     "type": "object",
-                                                     "properties": {
-                                                         "can_proceed": {
-                                                             "type": "boolean",
-                                                             "description": "Return false"},
-                                                         "summary": {
-                                                             "type": "string",
-
-                                                         }
-                                                     },
-                                                     "required": [
-                                                         "can_proceed",
-                                                         "summary"
-                                                     ]
-                                                 }
-                                             },
-                                             "answer": None,
-                                             "function": None,
-                                             "entity": entity,
-                                             "index": 0,
-                                             "iteration": 0,
-                                             "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
-                                             "flow_step": ENTITIES_DESIGN_STR,
-                                             "additional_questions": [QUESTION_OR_VALIDATE],
-                                             "max_iteration": MAX_ITERATION
-                                             },
-                                            {
-                                                "question": f"Let's set up a connection to ingest data from an external source. Could you please provide the configuration details? You can either share a link to the relevant API documentation (e.g., Swagger or OpenAPI) or offer instructions for configuring the connection. If applicable, please include any additional details such as specific endpoints, default parameters, or other relevant information.",
-                                                "prompt": {},
-                                                "answer": None,
-                                                "function": None,
-                                                "index": 0,
-                                                "iteration": 0,
-                                                "file_name": f"entity/{entity.get("entity_name")}/connections/connections.py",
-                                                "flow_step": ENTITIES_DESIGN_STR,
-                                                "max_iteration": 0},
-                                            {
-                                                "question": None,
-                                                "prompt": {},
-                                                "answer": None,
-                                                "function": {"name": "refresh_context"},
-                                                "context": {
-                                                    "files": [],
-                                                },
-                                                "iteration": 0,
-                                                "flow_step": ENTITIES_DESIGN_STR,
-                                                "max_iteration": 0},
-                                            ]
-
