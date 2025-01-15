@@ -67,12 +67,14 @@ async def add_design_stack(token, _event, chat) -> list:
     stack = chat["chat_flow"]["current_flow"]
     entities_dict = {ENTITY_STACK: []}
     # Process entities by entity_source or workflow transitions
+
     for entity in reversed_design_entities:
         entity_source = entity.get("entity_source")
-        entity_workflow = entity.get("entity_workflow")
-        # Add entities to stack based on entity_source
         if entity_source in entry_point_to_stack:
             stack.extend(entry_point_to_stack[entity_source](entity))
+
+    for entity in reversed_design_entities:
+        entity_workflow = entity.get("entity_workflow")
         # Add entities with transitions to stack based on workflow
         if entity_workflow and entity_workflow.get("transitions"):
             stack.extend(entry_point_to_stack[PROCESSORS_STACK](entity))
@@ -273,13 +275,13 @@ async def generate_data_ingestion_code(token, _event, chat):
 async def generate_entities_template(token, _event, chat):
     # Fetch entities from the event
     entities = _event.get("entities", [])
+    user_data = f"Please, take into account the user suggestions. User suggestions take higher priority. User says: {_event["answer"]}" if \
+        _event["answer"] else ''
     # List of tasks to be executed concurrently
     tasks = []
     for entity in entities:
         # Define a function to handle the task for each entity
         async def handle_entity(_entity):
-            user_data = f"Please, take into account the user suggestions. User suggestions take higher priority. User says: {_event["answer"]}" if \
-            _event["answer"] else ''
             ai_question = f"Based on the data you have in the context and your understanding of the users requirement please generate json data example for entity {_entity.get('entity_name')}. {user_data}. Return only json."
             if ai_question:
                 # Generate file contents asynchronously for each entity
