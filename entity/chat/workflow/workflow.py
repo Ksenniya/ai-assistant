@@ -85,9 +85,7 @@ async def add_design_stack(token, _event, chat) -> list:
             entities_dict[entity_type].append(entity)
         else:
             entities_dict[ENTITY_STACK].append(entity)
-    for stack_key in [  ##ENTITY_STACK##,
-        WEB_SCRAPING_PULL_BASED_RAW_DATA,
-        TRANSACTIONAL_PULL_BASED_RAW_DATA, EXTERNAL_SOURCES_PULL_BASED_RAW_DATA]:
+    for stack_key in [ENTITY_STACK, WEB_SCRAPING_PULL_BASED_RAW_DATA, TRANSACTIONAL_PULL_BASED_RAW_DATA, EXTERNAL_SOURCES_PULL_BASED_RAW_DATA]:
         if stack_key in entities_dict:
             stack.extend(entry_point_to_stack.get(stack_key, lambda x: [])(entities_dict[stack_key]))
 
