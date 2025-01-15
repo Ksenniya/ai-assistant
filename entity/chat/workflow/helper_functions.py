@@ -7,8 +7,9 @@ import os
 import aiofiles
 import black
 
-from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO
-from common.util.utils import parse_json, get_project_file_name
+from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO, CYODA_AI_API
+from common.config.enums import TextType
+from common.util.utils import parse_json, get_project_file_name, read_file
 from entity.chat.data.mock_data_generator import generate_mock_data
 from logic.init import ai_service
 
@@ -371,13 +372,13 @@ async def _build_context_from_project_files(chat, files, excluded_files):
             for file_path in glob.glob(root_path, recursive=True):  # recursive=True to include files in subdirectories
                 if os.path.isfile(file_path) and not any(file_path.endswith(excluded) for excluded in excluded_files):
                     async with aiofiles.open(file_path, "r") as f:
-                        contents.append({file_path: f.read()})
+                        contents.append({file_path: await f.read()})
         else:
             file_path = get_project_file_name(chat["chat_id"], file_pattern)
             # Check if the file exists before trying to open it
             if os.path.isfile(file_path):
                 async with aiofiles.open(file_path, "r") as f:
-                    contents.append({file_pattern: f.read()})
+                    contents.append({file_pattern: await f.read()})
     return contents
 
 
@@ -406,6 +407,107 @@ async def save_result_to_file(chat, _event, _data):
         notification_text = f"I've pushed the changes to {file_name} . Could you please take a look when you get a chance? 😸"
         await _send_notification(chat=chat, event=_event, notification_text=notification_text)
 
+async def generate_data_ingestion_code_for_entity(_event, chat, entity, files_notifications, target_dir, token):
+    try:
+        # Fetch resources
+        code_file_name, doc_file_text, entity_file_text, entity_name = await _get_resources(entity, files_notifications, target_dir)
+        ai_question = _event.get("function", {}).get("prompts", {}).get(entity.get("entity_type", ""), {}).get("text",
+                                                                                                               "").format(
+            doc=doc_file_text,
+            entity_data=entity_file_text,
+            entity_name=entity_name
+        )
+        # Prepare AI question
+        await generate_file_contents(_event=_event, chat=chat, file_name = code_file_name, ai_question=ai_question, token = token, text_type=TextType.PYTHON)
+
+    except KeyError as e:
+        logger.error(f"KeyError: Missing expected key: {e} for entity {entity.get('entity_name')}")
+        logger.exception(e)
+    except Exception as e:
+        logger.error(f"Unexpected error for entity {entity.get('entity_name')}: {e}")
+        logger.exception(e)
+
+
+async def generate_file_contents(_event, chat, file_name, ai_question,
+                                 token, text_type: TextType):
+
+    # Generate code from AI
+    generated_text = await ai_service.ai_chat(
+        token=token,
+        chat_id=chat["chat_id"],
+        ai_endpoint=CYODA_AI_API,
+        ai_question=ai_question
+    )
+    try:
+        if text_type == TextType.JSON:
+            generated_text = _process_data(generated_text)
+        elif text_type == TextType.PYTHON:
+            generated_text = _format_code(generated_text)
+    except e as Exception:
+        logger.exception(e)
+
+    await _save_file(
+        chat_id=chat["chat_id"],
+        _data=json.dumps(generated_text),
+        item=file_name
+    )
+    # Send a notification with the generated code file
+    notification_text = f"file_name: {file_name} \n {generated_text}"
+    await _send_notification_with_file(
+        chat=chat,
+        event=_event,
+        notification_text=notification_text,
+        file_name=file_name,
+        editable=True
+    )
+
+
+# Helper function to generate file name from template
+def get_file_name(template, entity_name):
+    return template.format(entity_name=entity_name)
+
+# Helper function to construct file paths
+def get_file_path(target_dir, file_name):
+    return os.path.join(target_dir, file_name)
+
+# Async function to read files concurrently
+async def read_files_concurrently(file_paths):
+    file_contents = await asyncio.gather(*[read_file(file_path) for file_path in file_paths])
+    return file_contents
+
+# Main function for getting resources
+async def _get_resources(entity, files_notifications, target_dir):
+    entity_name = entity.get("entity_name")
+
+    # Define a map for 'code', 'doc', and 'entity' file types
+    file_types = {
+        "code": files_notifications.get("code", {}),
+        "doc": files_notifications.get("doc", {}),
+        "entity": files_notifications.get("entity", {})
+    }
+
+    # Generate file names using the map and templates
+    file_names = {
+        file_type: get_file_name(file_info.get("file_name", ""), entity_name)
+        for file_type, file_info in file_types.items()
+    }
+
+    # Construct file paths
+    file_paths = {
+        file_type: get_file_path(target_dir, file_name)
+        for file_type, file_name in file_names.items()
+    }
+
+    # Read the files concurrently
+    file_contents = await read_files_concurrently(list(file_paths.values()))
+
+    # Return the results in the desired order
+    return (
+        file_names["code"],  # Code file name
+        file_contents[0],     # Doc file content
+        file_contents[1],     # Entity file content
+        entity_name           # Entity name
+    )
 
 def comment_out_non_code(text):
     if '```python' in text:

@@ -3,12 +3,12 @@ from common.config.config import MAX_ITERATION, RANDOM_AI_API
 DESIGN_PLEASE_WAIT = "⚙️ Generating your Cyoda design... please wait a moment! ⏳"
 
 FILES_NOTIFICATIONS = {
-    "raw_data": {"text": "😊 Could you please provide an example of the raw data? It would be super helpful! Thanks!",
-                 "file_name": "entity/{entity_name}/connections/raw_data.json"},
-    "code": {"text": "😊 Could you please provide details for the connection functions? It would really help clarify things! Thank you!",
-             "file_name": "entity/{entity_name}/connections/connections.py"},
-    "doc": {"text": "😊 Could you please provide more details for the connection documentation? It would be super helpful! Thanks so much!",
-            "file_name": "entity/{entity_name}/connections/connections_input.md"},
+    "code": {
+        "text": "😊 Could you please provide details for the connection functions? It would really help clarify things! Thank you!",
+        "file_name": "entity/{entity_name}/connections/connections.py"},
+    "doc": {
+        "text": "😊 Could you please provide more details for the connection documentation? It would be super helpful! Please provide raw data for each endpoint if the final entity structure is different. Thanks so much!",
+        "file_name": "entity/{entity_name}/connections/connections_input.md"},
     "entity": {
         "text": "😊 Could you please provide an example of the entity JSON? It will help us map the raw data to the entity or save the raw data as is. Thanks a lot!",
         "file_name": "entity/{entity_name}/{entity_name}.json"}
@@ -234,6 +234,7 @@ app_building_stack = [{"question": "Finished",
                        "flow_step": APPLICATION_DESIGN_STR,
                        "max_iteration": 0},
                       # Generate Cyoda design, based on the requirement
+                      # todo uncomment
                       # {"question": None,
                       #  "prompt": {
                       #      "text": "Using Cyoda design json, return human readable prd document that explains the Cyoda design json and explains how it is aligned with the requirement. You not only need to translate the json, but explain what is Cyoda entity data base, how event driven approach works for the specific requirement - why we do what we do, as the user will be completely new to Cyoda.",
@@ -277,7 +278,7 @@ app_building_stack = [{"question": "Finished",
                       # Is this requirement sufficient?
                       {"question": None,
                        "prompt": {
-                           "text": "Is this requirement sufficient?",
+                           "text": "Is this requirement sufficient? At this stage you do not need API docs for data ingestion if there is any. Also any particular details of the implementation must be omitted. You only need minimum information to produce Cyoda design. So concentrate on collecting the information which will allow you to outline the entities and their workflows. Do not go into too much detail.",
                            "schema": {
                                "$schema": "http://json-schema.org/draft-07/schema#",
                                "title": "Answer schema",
@@ -302,7 +303,7 @@ app_building_stack = [{"question": "Finished",
                        },
                        "ui_config": {
                            "display_keys": [{
-                               "questions_to_answer": "😊 Could you please help me with these questions? If you're ready to move on to the next iteration or skip this one, just click 'Approve'! 👍 : "}],
+                               "questions_to_answer": "😊 Could you please help me with these questions? No need to specify API docs for data ingestion at the current iteration.  If you're ready to move on to the next iteration or skip this one, just click 'Approve'! 👍 : "}],
                        },
                        "file_name": "entity/app_design.json",
                        "answer": None,
@@ -365,32 +366,36 @@ app_building_stack = [{"question": "Finished",
 
 data_ingestion_stack = lambda entities: [
     {
+        "question": f"😊✨ Are you ready to move on to the next iteration? Let me know when you're all set! 😄🚀",
+        "prompt": {},
+        "answer": None,
+        "function": None,
+        "index": 0,
+        "iteration": 0,
+        "flow_step": ENTITIES_DESIGN_STR,
+        "max_iteration": 0},
+    {
         "question": None,
         "prompt": {},
         "answer": None,
         "function": {"name": "generate_data_ingestion_code",
-                     "prompts": [
-                         {"EXTERNAL_SOURCES_PULL_BASED_RAW_DATA": {
-                             "text": f"Generate python code to get data from this external data source. The code should contain functions for each of the specified endpoints. Each function takes request parameters as input parameters and returns raw data as a response. Call the public function ingest_data(...). Provide a main method to test the ingest_data.",
-                             "api": RANDOM_AI_API,
-                         }
+                     "prompts": {
+                         "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA": {
+                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and save it to the entity {entity_name}. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Include a main method to test ingest_data.",
                          },
-                         {"WEB_SCRAPING_PULL_BASED_RAW_DATA": {
-                             "text": f"Generate python code for a webscraper that collects data from this data source. Call the public function ingest_data(...). Provide a main method to test the ingest_data.",
-                             "api": RANDOM_AI_API
-                         }
+                         "WEB_SCRAPING_PULL_BASED_RAW_DATA": {
+                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and save it to the entity {entity_name}. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Include a main method to test ingest_data.",
                          },
-                         {"TRANSACTIONAL_PULL_BASED_RAW_DATA": {
-                             "text": f"Generate python code to get data from this external data source. The code should contain functions for each of the specified endpoints. Each function takes request parameters as input parameters and returns raw data as a response. Call the public function ingest_data(...). Provide a main method to test the ingest_data.",
-                             "api": RANDOM_AI_API
+                         "TRANSACTIONAL_PULL_BASED_RAW_DATA": {
+                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and save it to the entity {entity_name}. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Include a main method to test ingest_data.",
                          }
-                         }
-                     ]
-                     },
+                     }},
         "context": {
             "files": [],
         },
         "entities": entities,
+        "files_notifications": FILES_NOTIFICATIONS,
+        "notification_text": "🎉 The code for data ingestion has been generated successfully! Please check it out and click 'Approve' if you're ready to move on to the next iteration. Feel free to use Canvas QA to suggest any improvements! 😊",
         "iteration": 0,
         "flow_step": ENTITIES_DESIGN_STR,
         "max_iteration": MAX_ITERATION
@@ -447,89 +452,138 @@ data_ingestion_stack = lambda entities: [
         "answer": None,
         "function": {"name": "refresh_context"},
         "context": {
-            "files": [],
+            "files": ["entity/app_design.json", "entity/user_requirement.md"],
         },
         "iteration": 0,
         "flow_step": ENTITIES_DESIGN_STR,
         "max_iteration": 0},
 ]
 
-entity_stack = lambda entity: [{"notification": DESIGN_PLEASE_WAIT,
-                                "prompt": {},
-                                "answer": None,
-                                "function": None,
-                                "iteration": 0,
-                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
-                                "flow_step": ENTITIES_DESIGN_STR,
-                                "max_iteration": 0
-                                },
-                               # Improve the entity model
-                               {"question": None,
-                                "prompt": {
-                                    "text": f"Improve the data model for {entity.get("entity_name")} based on the user suggestions if there are any. Return only json, any non json value will result in error, no comments required. **User requirement has the highest priority** If the user formulates data model themselves, just apply user input with correct formatting. User's requirement: ",
+entity_stack = lambda entities: [
+    {
+        "question": f"😊✨ Are you ready to move on to the next iteration? Let me know when you're all set! 😄🚀",
+        "prompt": {},
+        "answer": None,
+        "function": None,
+        "index": 0,
+        "iteration": 0,
+        "flow_step": ENTITIES_DESIGN_STR,
+        "max_iteration": 0},
+    {
+        "question": None,
+        "prompt": {},
+        "answer": None,
+        "function": {"name": "generate_entities_template"},
+        "files_notifications": FILES_NOTIFICATIONS,
+        "context": {
+            "files": [],
+        },
+        "entities": entities,
+        "iteration": 0,
+        "flow_step": ENTITIES_DESIGN_STR,
+        "notification_text": f"😊 Could you please take a look at the generated entity examples? If you have a specific structure in mind, feel free to adjust my suggestions and click 'Approve' 👍. You can also use Canvas to edit the entities together. Thanks so much!",
+        "max_iteration": 0},
+    {
+        "question": f"🚀 We’re all set to start generating the entities! If you have any additional details you'd like me to include, feel free to share. No worries if anything goes wrong – we can always fix it later! 😊",
+        "prompt": {},
+        "answer": None,
+        "function": None,
+        "index": 0,
+        "iteration": 0,
+        "flow_step": ENTITIES_DESIGN_STR,
+        "files_notifications": FILES_NOTIFICATIONS,
+        "max_iteration": 0},
+    {
+        "question": None,
+        "prompt": {},
+        "answer": None,
+        "function": {"name": "refresh_context"},
+        "context": {
+            "files": ["entity/**"],
+            "excluded_files": ["entity/workflow.py", "entity/__init__.py"],
+        },
+        "notification_text": "",
+        "iteration": 0,
+        "flow_step": ENTITIES_DESIGN_STR,
+        "max_iteration": 0},
+]
 
-                                },
-                                "answer": None,
-                                "function": None,
-                                "entity": entity,
-                                "index": 0,
-                                "iteration": 0,
-                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
-                                "flow_step": ENTITIES_DESIGN_STR,
-                                "additional_questions": ["Would you like to improve the data model? "],
-                                "max_iteration": MAX_ITERATION},
-                               # Would you like to edit the model
-                               {"question": "Would you like to edit the model?",
-                                "prompt": {},
-                                "answer": None,
-                                "function": None,
-                                "index": 0,
-                                "iteration": 0,
-                                "example_answers": ["Yes, I would like to edit the model",
-                                                    "No, I would like to proceed with the current model"],
-                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
-                                "flow_step": ENTITIES_DESIGN_STR,
-                                "max_iteration": 0},
-                               # Generate example data json (data model)
-                               {"question": None,
-                                "prompt": {
-                                    "text": f"Generate example data json (data model) for entity {entity.get("entity_name")}. This is NOT related to entity design and should be random sample data that can be mock data returned from a datasource or data that reflects business logic or the data that is specified by the user. Return only json, any non json value will result in error, no comments required. Base your answer on the user input if any: "
-                                },
-                                "answer": None,
-                                "function": None,
-                                "entity": entity,
-                                "index": 0,
-                                "iteration": 0,
-                                "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
-                                "flow_step": ENTITIES_DESIGN_STR,
-                                "max_iteration": 0},
-                               # Would you like to specify the entity
-                               {
-                                   "question": f"Let's generate the entity schema. Would you like to specify the data for entity: {entity}",
+entity_stack_v1 = lambda entity: [{"notification": DESIGN_PLEASE_WAIT,
+                                   "prompt": {},
+                                   "answer": None,
+                                   "function": None,
+                                   "iteration": 0,
+                                   "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
+                                   "flow_step": ENTITIES_DESIGN_STR,
+                                   "max_iteration": 0
+                                   },
+                                  # Improve the entity model
+                                  {"question": None,
+                                   "prompt": {
+                                       "text": f"Improve the data model for {entity.get("entity_name")} based on the user suggestions if there are any. Return only json, any non json value will result in error, no comments required. **User requirement has the highest priority** If the user formulates data model themselves, just apply user input with correct formatting. User's requirement: ",
+
+                                   },
+                                   "answer": None,
+                                   "function": None,
+                                   "entity": entity,
+                                   "index": 0,
+                                   "iteration": 0,
+                                   "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
+                                   "flow_step": ENTITIES_DESIGN_STR,
+                                   "additional_questions": ["Would you like to improve the data model? "],
+                                   "max_iteration": MAX_ITERATION},
+                                  # Would you like to edit the model
+                                  {"question": "Would you like to edit the model?",
                                    "prompt": {},
                                    "answer": None,
                                    "function": None,
                                    "index": 0,
                                    "iteration": 0,
+                                   "example_answers": ["Yes, I would like to edit the model",
+                                                       "No, I would like to proceed with the current model"],
                                    "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
                                    "flow_step": ENTITIES_DESIGN_STR,
-                                   "example_answers": ["Could you please take into account ...",
-                                                       "What would you recommend?",
-                                                       "I've already provided all the necessary details in the session context"],
                                    "max_iteration": 0},
-                               {
-                                   "question": None,
-                                   "prompt": {},
-                                   "answer": None,
-                                   "function": {"name": "refresh_context"},
-                                   "context": {
-                                       "files": ["entity/**"],
-                                       "excluded_files": ["entity/workflow.py", "entity/__init__.py"],
+                                  # Generate example data json (data model)
+                                  {"question": None,
+                                   "prompt": {
+                                       "text": f"Generate example data json (data model) for entity {entity.get("entity_name")}. This is NOT related to entity design and should be random sample data that can be mock data returned from a datasource or data that reflects business logic or the data that is specified by the user. Return only json, any non json value will result in error, no comments required. Base your answer on the user input if any: "
                                    },
+                                   "answer": None,
+                                   "function": None,
+                                   "entity": entity,
+                                   "index": 0,
                                    "iteration": 0,
+                                   "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
                                    "flow_step": ENTITIES_DESIGN_STR,
                                    "max_iteration": 0},
-                               ]
+                                  # Would you like to specify the entity
+                                  {
+                                      "question": f"Let's generate the entity schema. Would you like to specify the data for entity: {entity}",
+                                      "prompt": {},
+                                      "answer": None,
+                                      "function": None,
+                                      "index": 0,
+                                      "iteration": 0,
+                                      "file_name": f"entity/{entity.get("entity_name")}/{entity.get("entity_name")}.json",
+                                      "flow_step": ENTITIES_DESIGN_STR,
+                                      "example_answers": ["Could you please take into account ...",
+                                                          "What would you recommend?",
+                                                          "I've already provided all the necessary details in the session context"],
+                                      "max_iteration": 0},
+                                  {
+                                      "question": None,
+                                      "prompt": {},
+                                      "answer": None,
+                                      "function": {"name": "refresh_context"},
+                                      "context": {
+                                          "files": ["entity/**"],
+                                          "excluded_files": ["entity/workflow.py", "entity/__init__.py"],
+                                      },
+                                      "iteration": 0,
+                                      "flow_step": ENTITIES_DESIGN_STR,
+                                      "max_iteration": 0},
+                                  ]
 
 workflow_stack = lambda entity: [{"notification": DESIGN_PLEASE_WAIT,
                                   "prompt": {},

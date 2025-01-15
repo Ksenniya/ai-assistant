@@ -9,11 +9,13 @@ from common.config.conts import SCHEDULED_STACK, API_REQUEST_STACK, \
     WORKFLOW_STACK, \
     ENTITY_STACK, PROCESSORS_STACK, EXTERNAL_SOURCES_PULL_BASED_RAW_DATA, WEB_SCRAPING_PULL_BASED_RAW_DATA, \
     TRANSACTIONAL_PULL_BASED_RAW_DATA
+from common.config.enums import TextType
 from common.util.utils import read_file, get_project_file_name, parse_json, parse_workflow_json
 from entity.chat.data.data import scheduler_stack, api_request_stack, workflow_stack, entity_stack, processors_stack, \
     data_ingestion_stack
 from entity.chat.workflow.helper_functions import _save_file, _sort_entities, _send_notification, \
-    _build_context_from_project_files, run_chat, _send_notification_with_file
+    _build_context_from_project_files, run_chat, _send_notification_with_file, git_pull, \
+    generate_data_ingestion_code_for_entity, generate_file_contents
 from logic.init import ai_service
 
 # Configure logging
@@ -21,15 +23,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 entry_point_to_stack = {
-        SCHEDULED_STACK: scheduler_stack,
-        API_REQUEST_STACK: api_request_stack,
-        EXTERNAL_SOURCES_PULL_BASED_RAW_DATA: data_ingestion_stack,
-        WEB_SCRAPING_PULL_BASED_RAW_DATA: data_ingestion_stack,
-        TRANSACTIONAL_PULL_BASED_RAW_DATA: data_ingestion_stack,
-        WORKFLOW_STACK: workflow_stack,
-        ENTITY_STACK: entity_stack,
-        PROCESSORS_STACK: processors_stack
-    }
+    SCHEDULED_STACK: scheduler_stack,
+    API_REQUEST_STACK: api_request_stack,
+    EXTERNAL_SOURCES_PULL_BASED_RAW_DATA: data_ingestion_stack,
+    WEB_SCRAPING_PULL_BASED_RAW_DATA: data_ingestion_stack,
+    TRANSACTIONAL_PULL_BASED_RAW_DATA: data_ingestion_stack,
+    WORKFLOW_STACK: workflow_stack,
+    ENTITY_STACK: entity_stack,
+    PROCESSORS_STACK: processors_stack
+}
+
 
 async def init_chats(token, _event, chat):
     if MOCK_AI == "true":
@@ -82,9 +85,9 @@ async def add_design_stack(token, _event, chat) -> list:
             entities_dict[entity_type].append(entity)
         else:
             entities_dict[ENTITY_STACK].append(entity)
-    for stack_key in [##ENTITY_STACK##,
-         WEB_SCRAPING_PULL_BASED_RAW_DATA,
-                      TRANSACTIONAL_PULL_BASED_RAW_DATA, EXTERNAL_SOURCES_PULL_BASED_RAW_DATA]:
+    for stack_key in [  ##ENTITY_STACK##,
+        WEB_SCRAPING_PULL_BASED_RAW_DATA,
+        TRANSACTIONAL_PULL_BASED_RAW_DATA, EXTERNAL_SOURCES_PULL_BASED_RAW_DATA]:
         if stack_key in entities_dict:
             stack.extend(entry_point_to_stack.get(stack_key, lambda x: [])(entities_dict[stack_key]))
 
@@ -203,6 +206,7 @@ async def generate_cyoda_workflow(token, _event, chat):
 
 
 async def generate_data_ingestion_entities_template(token, _event, chat):
+    # todo add a directory /user_files. Scan this directory and formulate the requirements from there
     entities = _event.get("entities", [])
     files_notifications = _event.get("files_notifications", {})
     if not entities:
@@ -217,7 +221,8 @@ async def generate_data_ingestion_entities_template(token, _event, chat):
                 file_text = file_text_template.format(entity_name=entity_name)
                 if file_name and file_text:
                     await _save_file(chat_id=chat["chat_id"], _data=json.dumps(file_text), item=file_name)
-                    await _send_notification_with_file(chat=chat, event=_event, notification_text=f"file_name: {file_name} \n {file_text}",
+                    await _send_notification_with_file(chat=chat, event=_event,
+                                                       notification_text=f"file_name: {file_name} \n {file_text}",
                                                        file_name=file_name, editable=True)
         except Exception as e:
             logger.error(f"Unexpected error for entity {entity.get("entity_name")}: {e}")
@@ -225,6 +230,7 @@ async def generate_data_ingestion_entities_template(token, _event, chat):
 
 
 async def check_entity_definitions(token, _event, chat):
+    await git_pull(chat['chat_id'])
     entities = _event.get("entities", [])
     target_dir = os.path.join(f"{PROJECT_DIR}/{chat["chat_id"]}/{REPOSITORY_NAME}")
     files_notifications = _event.get("files_notifications", {})
@@ -251,60 +257,49 @@ async def check_entity_definitions(token, _event, chat):
 
 
 async def generate_data_ingestion_code(token, _event, chat):
-    entities = _event.get("entities")
-    #
-    # for each entity ask question get event
-    # . get prompt by entity type
-    # save answer to file
-    # entity/entity_name/connections/connections.py
-    # send notification
+    await git_pull(chat['chat_id'])
     entities = _event.get("entities", [])
     target_dir = os.path.join(f"{PROJECT_DIR}/{chat["chat_id"]}/{REPOSITORY_NAME}")
     files_notifications = _event.get("files_notifications", {})
     if not entities:
         logger.warning("No entities found in the event.")
+    tasks = []
     for entity in entities:
-        try:
-            entity_name = entity.get("entity_name")
-            code_info = files_notifications.get("code")
-            doc_info = files_notifications.get("doc")
-            entity_info = files_notifications.get("entity")
-            raw_data_info = files_notifications.get("raw_data")
+        # todo add code validation
+        tasks.append(
+            generate_data_ingestion_code_for_entity(_event, chat, entity, files_notifications, target_dir, token))
+    await asyncio.gather(*tasks)
+    await _send_notification(chat=chat, event=_event, notification_text=_event.get("notification_text"))
 
-            raw_data_file_name_template = raw_data_info.get("file_name", "")
-            raw_data_file_text_template = raw_data_info.get("text", "")
-            raw_data_file_name = raw_data_file_name_template.format(entity_name=entity_name)
-            raw_data_file_text = raw_data_file_text_template.format(entity_name=entity_name)
 
-            code_file_name_template = code_info.get("file_name", "")
-            code_file_text_template = code_info.get("text", "")
-            code_file_name = code_file_name_template.format(entity_name=entity_name)
-            code_file_text = code_file_text_template.format(entity_name=entity_name)
+async def generate_entities_template(token, _event, chat):
+    # Fetch entities from the event
+    entities = _event.get("entities", [])
+    # List of tasks to be executed concurrently
+    tasks = []
+    for entity in entities:
+        # Define a function to handle the task for each entity
+        async def handle_entity(_entity):
+            user_data = f"Please, take into account the user suggestions. User suggestions take higher priority. User says: {_event["answer"]}" if \
+            _event["answer"] else ''
+            ai_question = f"Based on the data you have in the context and your understanding of the users requirement please generate json data example for entity {_entity.get('entity_name')}. {user_data}. Return only json."
+            if ai_question:
+                # Generate file contents asynchronously for each entity
+                await generate_file_contents(
+                    _event=_event,
+                    chat=chat,
+                    file_name=f"entity/{_entity.get('entity_name')}/{_entity.get('entity_name')}.json",
+                    ai_question=ai_question,
+                    token=token,
+                    text_type=TextType.JSON
+                )
 
-            doc_file_name_template = doc_info.get("file_name", "")
-            doc_file_text_template = doc_info.get("text", "")
-            doc_file_name = doc_file_name_template.format(entity_name=entity_name)
-            doc_file_text = doc_file_text_template.format(entity_name=entity_name)
-
-            entity_file_name_template = entity_info.get("file_name", "")
-            entity_file_text_template = entity_info.get("text", "")
-            entity_file_name = entity_file_name_template.format(entity_name=entity_name)
-            entity_file_text = entity_file_text_template.format(entity_name=entity_name)
-
-            code_file_path = os.path.join(target_dir, code_file_name)
-            doc_file_path = os.path.join(target_dir, doc_file_name)
-            entity_file_path = os.path.join(target_dir, entity_file_name)
-
-            doc_file_text = await read_file(doc_file_path)
-            entity_file_text = await read_file(entity_file_path)
-
-            # notification_text = _event.get("notification_text").format(file_name=file_name)
-            # await _send_notification_with_file(chat=chat, event=_event, notification_text=notification_text,
-            #                                    file_name=file_name, editable=True)
-
-        except Exception as e:
-            logger.error(f"Unexpected error for entity {entity.get("entity_name")}: {e}")
-            logger.exception(e)
+        # Add the task to the list
+        tasks.append(handle_entity(entity))
+    # Wait for all tasks to complete
+    await asyncio.gather(*tasks)
+    # Send notification after all tasks are completed
+    await _send_notification(chat=chat, event=_event, notification_text=_event.get("notification_text"))
 
 
 def main():

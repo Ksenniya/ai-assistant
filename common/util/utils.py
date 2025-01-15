@@ -111,7 +111,8 @@ async def validate_result(data: str, file_path: str, schema: Optional[str]) -> s
     if file_path:
         try:
             async with aiofiles.open(file_path, "r") as schema_file:
-                schema = json.load(schema_file)
+                content = await schema_file.read()
+                schema = json.load(content)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logger.error(f"Error reading schema file {file_path}: {e}")
             raise

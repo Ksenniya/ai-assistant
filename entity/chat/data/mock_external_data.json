@@ -1,1 +1,187 @@
-{"Improve the Cyo": {"can_proceed": "False", "entities": [{"entity_name": "r1EbKsJ6CUBBKmd", "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA", "entity_source": "SCHEDULED", "depends_on_entity": "krB7eil7X", "entity_workflow": {"name": "4kVRtGaxS", "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity", "transitions": [{"name": "AoQvrB", "description": "v2U0Q4BIsQKqF0", "start_state": "YuhzgJJUY5z", "start_state_description": "8qiIpFlTwhvtjg", "end_state": "1YspPrqQ07zk", "end_state_description": "d9pTvIxicNB", "process": {"name": "shoCIem3AcJkXZY", "description": "u2d3IIH", "adds_new_entites": "QlcfIEmjwAj"}}]}}]}, "Generate Cyoda ": {"entities": [{"entity_name": "lQ28yCw", "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA", "entity_source": "SCHEDULED", "depends_on_entity": "fH3mXSQ8Rl3sT", "entity_workflow": {"name": "6QFHmYudx4", "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity", "transitions": [{"name": "UDqg9fkkozGR", "description": "SqXKwPHMAXAhaFX", "start_state": "XHkF0Tx", "end_state": "njnjCDi8i", "end_state_description": "L9RlapH2ftMQc", "process": {"name": "KvqJ0VcVOPsnH6m", "description": "a7gkIlXN3wci7gJ", "adds_new_entites": "AAzSFgbf"}}]}}]}, "Is this require": {"can_proceed": "False", "questions_to_answer": ["0RSO1NyVi18itu"]}, "Improve the wor": {"can_proceed": "False", "entity_workflow": {"name": "GGTbWGNxB", "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity", "transitions": [{"name": "OVgaHs4c2mSIaC", "start_state": "QIs6zP", "start_state_description": "l687vBa", "end_state": "89wDCQzX", "process": {"name": "u1aW3WMbNCGvhc", "description": "bbg8x5r", "adds_new_entites": "gh9ypWxqZ2"}}]}}}
+{
+  "Improve the Cyo": {
+    "can_proceed": "False",
+    "entities": [
+      {
+        "entity_name": "r1EbKsJ6CUBBKmd",
+        "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+        "entity_source": "SCHEDULED",
+        "depends_on_entity": "krB7eil7X",
+        "entity_workflow": {
+          "name": "4kVRtGaxS",
+          "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+          "transitions": [
+            {
+              "name": "AoQvrB",
+              "description": "v2U0Q4BIsQKqF0",
+              "start_state": "YuhzgJJUY5z",
+              "start_state_description": "8qiIpFlTwhvtjg",
+              "end_state": "1YspPrqQ07zk",
+              "end_state_description": "d9pTvIxicNB",
+              "process": {
+                "name": "shoCIem3AcJkXZY",
+                "description": "u2d3IIH",
+                "adds_new_entites": "QlcfIEmjwAj"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "entity_name": "r1EbKsJ6CUBBKmd2",
+        "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+        "entity_source": "SCHEDULED",
+        "depends_on_entity": "krB7eil7X",
+        "entity_workflow": {
+          "name": "4kVRtGaxS2",
+          "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+          "transitions": [
+            {
+              "name": "AoQvrB",
+              "description": "v2U0Q4BIsQKqF0",
+              "start_state": "YuhzgJJUY5z",
+              "start_state_description": "8qiIpFlTwhvtjg",
+              "end_state": "1YspPrqQ07zk",
+              "end_state_description": "d9pTvIxicNB",
+              "process": {
+                "name": "shoCIem3AcJkXZY",
+                "description": "u2d3IIH",
+                "adds_new_entites": "QlcfIEmjwAj"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "entity_name": "r1EbKsJd6CUBBKmd2JOB",
+        "entity_type": "JOB",
+        "entity_source": "SCHEDULED",
+        "depends_on_entity": "krB7eil7X",
+        "entity_workflow": {
+          "name": "4kVRtGaxS2",
+          "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+          "transitions": [
+            {
+              "name": "AoQvrB",
+              "description": "v2U0Q4BIsQKqF0",
+              "start_state": "YuhzgJJUY5z",
+              "start_state_description": "8qiIpFlTwhvtjg",
+              "end_state": "1YspPrqQ07zk",
+              "end_state_description": "d9pTvIxicNB",
+              "process": {
+                "name": "shoCIem3AcJkXZY",
+                "description": "u2d3IIH",
+                "adds_new_entites": "QlcfIEmjwAj"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "Generate Cyoda ": {
+    "entities": [
+      {
+        "entity_name": "r1EbKsJ6CUBBKmd",
+        "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+        "entity_source": "SCHEDULED",
+        "depends_on_entity": "krB7eil7X",
+        "entity_workflow": {
+          "name": "4kVRtGaxS",
+          "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+          "transitions": [
+            {
+              "name": "AoQvrB",
+              "description": "v2U0Q4BIsQKqF0",
+              "start_state": "YuhzgJJUY5z",
+              "start_state_description": "8qiIpFlTwhvtjg",
+              "end_state": "1YspPrqQ07zk",
+              "end_state_description": "d9pTvIxicNB",
+              "process": {
+                "name": "shoCIem3AcJkXZY",
+                "description": "u2d3IIH",
+                "adds_new_entites": "QlcfIEmjwAj"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "entity_name": "r1EbKsJ6CUBBKmd2",
+        "entity_type": "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA",
+        "entity_source": "SCHEDULED",
+        "depends_on_entity": "krB7eil7X",
+        "entity_workflow": {
+          "name": "4kVRtGaxS2",
+          "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+          "transitions": [
+            {
+              "name": "AoQvrB",
+              "description": "v2U0Q4BIsQKqF0",
+              "start_state": "YuhzgJJUY5z",
+              "start_state_description": "8qiIpFlTwhvtjg",
+              "end_state": "1YspPrqQ07zk",
+              "end_state_description": "d9pTvIxicNB",
+              "process": {
+                "name": "shoCIem3AcJkXZY",
+                "description": "u2d3IIH",
+                "adds_new_entites": "QlcfIEmjwAj"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "entity_name": "r1EbKsJd6CUBBKmd2JOB",
+        "entity_type": "JOB",
+        "entity_source": "SCHEDULED",
+        "depends_on_entity": "krB7eil7X",
+        "entity_workflow": {
+          "name": "4kVRtGaxS2",
+          "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+          "transitions": [
+            {
+              "name": "AoQvrB",
+              "description": "v2U0Q4BIsQKqF0",
+              "start_state": "YuhzgJJUY5z",
+              "start_state_description": "8qiIpFlTwhvtjg",
+              "end_state": "1YspPrqQ07zk",
+              "end_state_description": "d9pTvIxicNB",
+              "process": {
+                "name": "shoCIem3AcJkXZY",
+                "description": "u2d3IIH",
+                "adds_new_entites": "QlcfIEmjwAj"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "Is this require": {
+    "can_proceed": "False",
+    "questions_to_answer": [
+      "0RSO1NyVi18itu"
+    ]
+  },
+  "Improve the wor": {
+    "can_proceed": "False",
+    "entity_workflow": {
+      "name": "GGTbWGNxB",
+      "class_name": "com.cyoda.tdb.model.treenode.TreeNodeEntity",
+      "transitions": [
+        {
+          "name": "OVgaHs4c2mSIaC",
+          "start_state": "QIs6zP",
+          "start_state_description": "l687vBa",
+          "end_state": "89wDCQzX",
+          "process": {
+            "name": "u1aW3WMbNCGvhc",
+            "description": "bbg8x5r",
+            "adds_new_entites": "gh9ypWxqZ2"
+          }
+        }
+      ]
+    }
+  }
+}
