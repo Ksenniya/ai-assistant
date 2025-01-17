@@ -11,9 +11,9 @@ from quart_cors import cors
 from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX, API_URL
 from common.exception.exceptions import ChatNotFoundException, UnauthorizedAccessException
 from common.util.utils import clean_formatting, send_get_request, read_file, \
-    get_project_file_name
-from entity.chat.data.data import app_building_stack, APP_BUILDER_FLOW
-from entity.chat.workflow.helper_functions import git_pull
+    get_project_file_name, format_json_if_needed
+from entity.chat.data.data import app_building_stack, APP_BUILDER_FLOW, new_questions_stack, DESIGN_PLEASE_WAIT
+from entity.chat.workflow.helper_functions import git_pull, _send_notification, _save_file
 from logic.logic import process_dialogue_script
 from logic.init import ai_service, cyoda_token, entity_service
 
@@ -138,7 +138,7 @@ def _get_user_id(auth_header):
         # The `verify=False` option ensures that we do not verify the signature
         # This is useful for extracting the payload only.
         decoded = jwt.decode(token, options={"verify_signature": False})
-        user_id = decoded.get("userId")
+        user_id = decoded.get("sub")  # todo change to userId when ready
         return user_id
     except jwt.InvalidTokenError:
         return None
@@ -177,6 +177,8 @@ async def _submit_question_helper(chat, question):
 
 async def rollback_dialogue_script(technical_id, auth_header, chat, question):
     current_flow = chat["chat_flow"]["current_flow"]
+    if "finished_flow" not in chat["chat_flow"]:
+        chat["chat_flow"]["finished_flow"] = []
     finished_flow = chat["chat_flow"]["finished_flow"]
     event = finished_flow.pop()
     if question:
@@ -199,8 +201,13 @@ async def rollback_dialogue_script(technical_id, auth_header, chat, question):
 
 
 async def _submit_answer_helper(technical_id, answer, auth_header, chat):
+    if "questions_queue" not in chat:
+        chat["questions_queue"] = {}
+
+    if "new_questions" not in chat["questions_queue"]:
+        chat["questions_queue"]["new_questions"] = []
     question_queue = chat["questions_queue"]["new_questions"]
-    if not question_queue.empty():
+    if len(question_queue) > 0:
         return jsonify({
             "message": "Could you please have a look at a couple of more questions before submitting your answer?"}), 400
     if not answer:
@@ -216,6 +223,14 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat):
         next_event["max_iteration"] = -1
     else:
         next_event["answer"] = clean_formatting(answer)
+    wait_notification = {"notification": DESIGN_PLEASE_WAIT,
+     "prompt": {},
+     "answer": None,
+     "function": None,
+     "iteration": 0,
+     "max_iteration": 0
+     }
+    question_queue.append(wait_notification)
     await entity_service.update_item(token=auth_header,
                                      entity_model="chat",
                                      entity_version=ENTITY_VERSION,
@@ -244,7 +259,19 @@ async def get_chats():
     chats = await entity_service.get_items_by_condition(token=auth_header,
                                                         entity_model="chat",
                                                         entity_version=ENTITY_VERSION,
-                                                        condition={"key": "user_id", "value": user_id})
+                                                        condition={"cyoda": {
+                                                            "operator": "AND",
+                                                            "conditions": [
+                                                                {
+                                                                    "jsonPath": "$.user_id",
+                                                                    "operatorType": "EQUALS",
+                                                                    "value": user_id,
+                                                                    "type": "simple"
+                                                                }
+                                                            ],
+                                                            "type": "group"
+                                                        },
+                                                            "local": {"key": "user_id", "value": user_id}})
     chats_view = [{
         'technical_id': chat['technical_id'],
         'chat_id': chat['chat_id'],
@@ -263,9 +290,10 @@ async def get_chat(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = await _get_chat_for_user(auth_header, technical_id)
     dialogue = []
-    for item in chat["chat_flow"]["finished_flow"]:
-        if item.get("question") or item.get("notification") or item.get("answer"):
-            dialogue.append(item)
+    if "finished_flow" in chat.get("chat_flow", {}):
+        for item in chat["chat_flow"]["finished_flow"]:
+            if item.get("question") or item.get("notification") or item.get("answer"):
+                dialogue.append(item)
     chats_view = {
         'technical_id': technical_id,
         'chat_id': chat['chat_id'],
@@ -306,89 +334,16 @@ async def add_chat():
         return jsonify({"message": "Invalid chat name"}), 400
     # Here, handle the answer (e.g., store it, process it, etc.)
     # todo use tech id as chat id
-    new_questions_stack = [
-        {
-            "notification": "🚀 Please check out your dedicated branch! 🌿 It'll just be you and me contributing to it, so let's make it awesome together! 😄",
-            "prompt": {},
-            "answer": None,
-            "function": None,
-            "iteration": 0,
-            "file_name": "instruction.txt",
-            "max_iteration": 0
-        },
-        {
-            "notification": "🎉 Great news! Your application will soon be available on the Cyoda Platform GitHub space! 🚀 Check it out here: [Cyoda Platform GitHub](https://github.com/Cyoda-platform/quart-client-template) 😄",
-            "prompt": {},
-            "answer": None,
-            "function": None,
-            "iteration": 0,
-            "file_name": "instruction.txt",
-            "max_iteration": 0
-        },
-        {
-            "notification": "If something goes wrong 😬, don't worry—just roll back! We've got this!",
-            "prompt": {},
-            "answer": None,
-            "function": None,
-            "iteration": 0,
-            "file_name": "instruction.txt",
-            "max_iteration": 0
-        },
-        {
-            "notification": "👍 If you're happy with my work or if you'd like me to pull your changes without analyzing them, just send me an approval notification! 😄",
-            "prompt": {},
-            "answer": None,
-            "function": None,
-            "iteration": 0,
-            "file_name": "instruction.txt",
-            "max_iteration": 0
-        },
-        {
-            "notification": "📝 If you'd like me to review your update to the remote, just click the push button! I'll fetch your changes and make any adjustments if needed. 😊",
-            "prompt": {},
-            "answer": None,
-            "function": None,
-            "iteration": 0,
-            "file_name": "instruction.txt",
-            "max_iteration": 0
-        },
-        {
-            "notification": "Your branch will be ready soon 🔧 When I push my changes to the remote, I'll let you know! If you'd like to suggest any improvements, feel free to send me a message or use Canvas. I'm happy to collaborate! 😊",
-            "prompt": {},
-            "answer": None,
-            "function": None,
-            "iteration": 0,
-            "file_name": "instruction.txt",
-            "max_iteration": 0
-        },
 
-
-        {
-            "notification": "We'll do our best to support you in building your application and deploying it to Cyoda Cloud! 🌟💻 Feel free to reach out if you need any help along the way! 😊",
-            "prompt": {},
-            "answer": None,
-            "function": None,
-            "iteration": 0,
-            "file_name": "instruction.txt",
-            "max_iteration": 0
-        },
-        {"notification": "👋 Hello and welcome to the Cyoda Application Builder! 🎉 We're excited to have you on board! Let's build something amazing together! 😄 ",
-         "prompt": {},
-         "answer": None,
-         "function": None,
-         "iteration": 0,
-         "file_name": "instruction.txt",
-         "editable": True,
-         "max_iteration": 0
-         }]
-    new_questions = queue.Queue()
-    while new_questions_stack:
-        new_questions.put(new_questions_stack.pop())
+    new_questions = []
+    questions_stack = copy.deepcopy(new_questions_stack)
+    while questions_stack:
+        new_questions.append(questions_stack.pop())
     chat = {
         "user_id": user_id,
         "date": "2023-11-07T12:00:00Z",
         "last_modified": "2023-11-07T12:00:00Z",
-        "questions_queue": {"new_questions": new_questions, "asked_questions": queue.Queue()},
+        "questions_queue": {"new_questions": new_questions, "asked_questions": []},
         "chat_flow": {"current_flow": copy.deepcopy(app_building_stack), "finished_flow": []},
         "name": name,
         "description": description
@@ -416,8 +371,8 @@ async def add_chat():
 async def get_question(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = await _get_chat_for_user(auth_header, technical_id)
-    question_queue = chat["questions_queue"]["new_questions"]
-    return await poll_questions(auth_header, chat, question_queue, technical_id)
+    questions_queue = chat.get("questions_queue", {}).get("new_questions", [])
+    return await poll_questions(auth_header, chat, questions_queue, technical_id)
 
 
 # "questions": [
@@ -456,26 +411,30 @@ async def get_question(technical_id):
 #                ]
 #            }
 #        },
-async def poll_questions(auth_header, chat, question_queue, technical_id):
+async def poll_questions(auth_header, chat, questions_queue, technical_id):
     try:
         questions_to_user = []
-        while not question_queue.empty():
-            questions_to_user.append(_process_question(question_queue.get_nowait()))
-        await entity_service.update_item(token=auth_header,
-                                         entity_model="chat",
-                                         entity_version=ENTITY_VERSION,
-                                         technical_id=technical_id,
-                                         entity=chat,
-                                         meta={})
+        while questions_queue:
+            questions_to_user.append(_process_question(questions_queue.pop(0)))
+        if len(questions_to_user) > 0:
+            await entity_service.update_item(token=auth_header,
+                                             entity_model="chat",
+                                             entity_version=ENTITY_VERSION,
+                                             technical_id=technical_id,
+                                             entity=chat,
+                                             meta={})
         return jsonify({"questions": questions_to_user}), 200
-    except queue.Empty:
-        return jsonify({"questions": []}), 200  # No Content
     except Exception as e:
         logger.exception(e)
         return jsonify({"questions": []}), 200  # No Content
 
 
 def _process_question(question):
+    if question.get("question"):
+        question = format_json_if_needed(question, "question")
+
+    if question.get("notification"):
+        question = format_json_if_needed(question, "notification")
     if question.get("question") and question.get("ui_config"):
         # Create a deep copy of the question object
         new_question = copy.deepcopy(question)
@@ -506,7 +465,23 @@ async def edit_file(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = await _get_chat_for_user(auth_header, technical_id)
     req_data = await request.get_json()
-    #todo
+    # todo
+    data = req_data.get('notification')
+    await _save_file(chat_id = chat["chat_id"], _data=data, item = req_data.get('file_name'))
+    finished_flow = chat["chat_flow"].get("finished_flow", [])
+    for i in range(len(finished_flow) - 1, -1, -1):  # Start from the end
+        if finished_flow[i].get("file_name") and finished_flow[i].get("file_name") == req_data.get('file_name'):
+            # Insert a new element after the found element
+            req_data["answer"] = data
+            req_data["notification"] = None
+            finished_flow.insert(i + 1, req_data)
+            break
+    await entity_service.update_item(token=auth_header,
+                                     entity_model="chat",
+                                     entity_version=ENTITY_VERSION,
+                                     technical_id=technical_id,
+                                     entity=chat,
+                                     meta={})
     return jsonify({"questions": []}), 200
 
 

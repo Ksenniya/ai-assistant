@@ -452,7 +452,7 @@ async def generate_file_contents(_event, chat, file_name, ai_question,
         item=file_name
     )
     # Send a notification with the generated code file
-    notification_text = f"file_name: {file_name} \n {generated_text}"
+    notification_text =  f"file_name: {file_name}\n{generated_text}"
     await _send_notification_with_file(
         chat=chat,
         event=_event,

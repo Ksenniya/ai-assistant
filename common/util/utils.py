@@ -1,4 +1,5 @@
 import logging
+import queue
 import time
 import re
 
@@ -226,16 +227,20 @@ async def send_request(headers, url, method, data, json):
     async with aiohttp.ClientSession() as session:
         if method == 'GET':
             async with session.get(url, headers=headers) as response:
-                data = await response.json()
+                if response and (response.status == 200 or response.status == 404):
+                    data = await response.json()
         elif method == 'POST':
             async with session.post(url, headers=headers, data=data, json=json) as response:
-                data = await response.json()
+                if response:
+                    data = await response.json()
         elif method == 'PUT':
             async with session.put(url, headers=headers, data=data, json=json) as response:
-                data = await response.json()
+                if response:
+                    data = await response.json()
         elif method == 'DELETE':
             async with session.delete(url, headers=headers) as response:
-                data = await response.json()
+                if response:
+                    data = await response.json()
 
     return data
 
@@ -329,3 +334,21 @@ def clean_formatting(text):
 
 def get_project_file_name(chat_id, file_name):
     return f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}/{file_name}"
+
+
+def custom_serializer(obj):
+    if isinstance(obj, queue.Queue):
+        # Convert queue to list
+        return list(obj.queue)
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+
+def format_json_if_needed(data, key):
+    value = data.get(key)
+    if isinstance(value, dict):
+        # Pretty print the JSON object
+        formatted_json = json.dumps(value, indent=4)
+        data[key] = f"```json \n{formatted_json}\n```"
+    else:
+        print(f"Data at {key} is not a valid JSON object: {value}")  # Optionally log this or handle it
+    return data

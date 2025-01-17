@@ -1,14 +1,14 @@
+import queue
 import threading
 from typing import List
 from common.config.config import API_URL
 from common.repository.crud_repository import CrudRepository
 from common.util.utils import *
 
-logger = logging.getLogger('django')
+logger = logging.getLogger('quart')
 
 
 class CyodaRepository(CrudRepository):
-
     _instance = None
     _lock = threading.Lock()  # Lock for thread safety
 
@@ -24,7 +24,7 @@ class CyodaRepository(CrudRepository):
         pass
 
     async def get_meta(self, token, entity_model, entity_version):
-        return {"token": token, "entity_model": entity_model, "entity_version": entity_version}
+        return {"token": token, "entity_model": entity_model, "entity_version": entity_version,  "update_transition": "update"}
 
     async def count(self, meta) -> int:
         pass
@@ -61,29 +61,34 @@ class CyodaRepository(CrudRepository):
         return res
 
     async def find_all_by_criteria(self, meta, criteria: Any) -> Optional[Any]:
-        resp = await self._search_entities(meta, criteria)
-        if resp['page']['totalElements'] == 0:
-            #resp = {'page': {'number': 0, 'size': 10, 'totalElements': 0, 'totalPages': 0}}
+        try:
+            resp = await self._search_entities(meta, criteria)
+            if resp['page']['totalElements'] == 0:
+                # resp = {'page': {'number': 0, 'size': 10, 'totalElements': 0, 'totalPages': 0}}
+                return []
+            # resp = {'_embedded': {'objectNodes': [{'id': 'f04bce86-89a9-11b2-aa0c-169608d9bc9e', 'tree': {'email': '4126cf85-61b6-48ec-b7bc-89fc1999d9b9@q.q', 'name': 'test', 'role': 'Start-up', 'user_id': '1703b76f-8b2f-11ef-9910-40c2ba0ac9eb'}}]}, 'page': {'number': 0, 'size': 10, 'totalElements': 1, 'totalPages': 1}}
+            #entities = resp["_embedded"]["objectNodes"]
+            result_entities = await self._convert_to_entities(resp)
+            return result_entities
+        except Exception as e:
+            logger.exception(e)
             return []
-        #resp = {'_embedded': {'objectNodes': [{'id': 'f04bce86-89a9-11b2-aa0c-169608d9bc9e', 'tree': {'email': '4126cf85-61b6-48ec-b7bc-89fc1999d9b9@q.q', 'name': 'test', 'role': 'Start-up', 'user_id': '1703b76f-8b2f-11ef-9910-40c2ba0ac9eb'}}]}, 'page': {'number': 0, 'size': 10, 'totalElements': 1, 'totalPages': 1}}
-        resp = resp["_embedded"]["objectNodes"]
-        return resp
 
     async def save(self, meta, entity: Any) -> Any:
         res = await self._save_new_entities(meta, [entity])
-        return res
+        return res[0]['entityIds'][0]
 
     async def save_all(self, meta, entities: List[Any]) -> bool:
         res = await self._save_new_entities(meta, entities)
-        return res
+        return res[0]['entityIds'][0]
 
     async def update(self, meta, _id, entity: Any) -> Any:
         meta["technical_id"] = _id
         if entity is None:
             res = await self._launch_transition(meta)
             return res
-        res = await self._update_entities(meta, [entity])
-        return res
+        res = await self._update_entity(meta=meta, _id=_id, entity=entity)
+        return res['entityIds'][0]
 
     async def update_all(self, meta, entities: List[Any]) -> List[Any]:
         res = await self._update_entities(meta, entities)
@@ -156,9 +161,12 @@ class CyodaRepository(CrudRepository):
 
         return None
 
+
     async def _save_new_entities(self, meta, entities: List[Any]) -> bool:
         try:
-            entities_data = json.dumps(entities)
+
+            # Serialize the entity with the custom serializer
+            entities_data = json.dumps(entities, default=custom_serializer)
             resp = await self._save_new_entity(
                 token=meta["token"],
                 model=meta["entity_model"],
@@ -182,7 +190,7 @@ class CyodaRepository(CrudRepository):
 
         try:
             response = await send_post_request(token=token, api_url=API_URL, path=path, data=data)
-            if response.status_code == 200:
+            if response:
                 logger.info(
                     f"Successfully saved schema for entity '{entity_name}' with version '{version}'. Response: {response}")
             else:
@@ -203,7 +211,7 @@ class CyodaRepository(CrudRepository):
         try:
             response = await send_put_request(token=token, api_url=API_URL, path=path, data=data)
 
-            if response.status_code == 200:
+            if response:
                 logger.info(
                     f"Successfully locked schema for entity '{entity_name}' with version '{version}'. Response: {response}")
             else:
@@ -221,12 +229,10 @@ class CyodaRepository(CrudRepository):
         export_model_path = f"treeNode/model/export/SIMPLE_VIEW/{entity_name}/{version}"
         response = await send_get_request(token, API_URL, export_model_path)
 
-        if response.status_code == 200:
+        if response:
             return True
-        elif response.status_code == 404:
-            return False
         else:
-            raise Exception(f"Get: {response.status_code} {response.text}")
+            return False
 
     @staticmethod
     async def _get_model(token, entity_name, version):
@@ -234,10 +240,10 @@ class CyodaRepository(CrudRepository):
 
         response = await send_get_request(token, API_URL, export_model_url)
 
-        if response.status_code == 200:
-            return response.json()
+        if response:
+            return response
         else:
-            raise Exception(f"Getting the model failed: {response.status_code} {response.text}")
+            raise Exception(f"Getting the model failed: {response}")
 
     @staticmethod
     async def _save_new_entity(token, model, version, data):
@@ -247,9 +253,9 @@ class CyodaRepository(CrudRepository):
         try:
             response = await send_post_request(token=token, api_url=API_URL, path=path, data=data)
 
-            if response.status_code == 200:
+            if response:
                 logger.info(f"Successfully saved new entity. Response: {response}")
-                return response.json()
+                return response
             else:
                 logger.error(f"Failed to save new entity. Response: {response}")
                 raise Exception(f"Failed to save new entity. Response: {response}")
@@ -264,30 +270,30 @@ class CyodaRepository(CrudRepository):
 
         response = await send_delete_request(token, API_URL, delete_entities_url)
 
-        if response.status_code == 200:
-            return response.json()
+        if response:
+            return response
         else:
-            raise Exception(f"Deletion failed: {response.status_code} {response.text}")
+            raise Exception(f"Deletion failed: {response}")
 
     @staticmethod
     async def _create_snapshot_search(token, model_name, model_version, condition):
         search_url = f"treeNode/search/snapshot/{model_name}/{model_version}"
         logger.info(condition)
         response = await send_post_request(token, API_URL, search_url, data=json.dumps(condition))
-        if response.status_code == 200:
-            return response.json()
+        if response:
+            return response
         else:
-            raise Exception(f"Snapshot search trigger failed: {response.status_code} {response.text}")
+            raise Exception(f"Snapshot search trigger failed: {response}")
 
     @staticmethod
     async def _get_snapshot_status(token, snapshot_id):
         status_url = f"treeNode/search/snapshot/{snapshot_id}/status"
 
         response = await send_get_request(token, API_URL, status_url)
-        if response.status_code == 200:
-            return response.json()
+        if response:
+            return response
         else:
-            raise Exception(f"Snapshot search trigger failed: {response.status_code} {response.text}")
+            raise Exception(f"Snapshot search trigger failed: {response}")
 
     async def _wait_for_search_completion(self, token, snapshot_id, timeout=5, interval=10):
         start_time = now()  # Record the start time
@@ -320,22 +326,17 @@ class CyodaRepository(CrudRepository):
 
         response = await send_get_request(token=token, api_url=API_URL, path=result_url)
 
-        if response.status_code == 200:
-            return response.json()
+        if response:
+            return response
         else:
-            raise Exception(f"Get search result failed: {response.status_code} {response.text}")
+            raise Exception(f"Get search result failed: {response}")
 
     @staticmethod
     async def _update_entities(meta, entities: List[Any]) -> List[Any]:
         path = "entity/JSON/TREE"
         payload = []
         for entity in entities:
-            entities_data = {
-                key: value for key, value in entity.to_dict().items()
-                if value is not None and key != "technical_id"
-            }
-
-            payload_json = json.dumps(entities_data)
+            payload_json = json.dumps(entity, default=custom_serializer)
 
             payload.append({
                 "id": meta.get("technical_id"),
@@ -344,30 +345,29 @@ class CyodaRepository(CrudRepository):
             })
             data = json.dumps(payload)
             response = await send_put_request(meta["token"], API_URL, path, data=data)
-            if response.status_code == 200:
+            if response:
                 return entities
             else:
-                raise Exception(f"Get search result failed: {response.status_code} {response.text}")
+                raise Exception(f"Get search result failed: {response}")
 
         return entities
 
     @staticmethod
-    async def _update_entity(meta, entities: List[Any]) -> List[Any]:
+    async def _update_entity(meta, _id, entity: Any) -> List[Any]:
         path = "entity/JSON/TREE"
-        for entity in entities:
-            entities_data = {
-                key: value for key, value in entity.to_dict().items()
-                if value is not None and key != "technical_id"
-            }
-            payload_json = json.dumps(entities_data)
-            response = await send_put_request(meta["token"], API_URL,
-                                        f"{path}/{entity.technical_id}/{meta["update_transition"]}", data=payload_json)
-            if response.status_code == 200:
-                return entities
-            else:
-                raise Exception(f"Get search result failed: {response.status_code} {response.text}")
 
-        return entities
+        # entities_data = {
+        #     key: value for key, value in entity.to_dict().items()
+        #     if value is not None and key != "technical_id"
+        # }
+        payload_json = json.dumps(entity, default=custom_serializer)
+        response = await send_put_request(meta["token"], API_URL,
+                                          f"{path}/{_id}/{meta["update_transition"]}",
+                                          data=payload_json)
+        if response:
+            return response
+        else:
+            raise Exception(f"Get search result failed: {response}")
 
     @staticmethod
     async def _convert_to_entities(data):
@@ -391,16 +391,16 @@ class CyodaRepository(CrudRepository):
     async def _get_by_id(self, meta, _uuid):
         path = f"entity/TREE/{_uuid}"
         response = await send_get_request(meta["token"], API_URL, path=path)
-        logger.info(response.json())
-        return response
+        logger.info(response)
+        return response.get('tree')
 
     async def _get_all_entities(self, meta):
         path = f"entity/TREE/{meta["entity_model"]}/{meta["entity_version"]}"
         response = await send_get_request(meta["token"], API_URL, path=path)
-        logger.info(response.json())
-        return response.json()
+        logger.info(response)
+        return response
 
     async def _launch_transition(self, meta):
         path = f"/platform-api/entity/transition?entityId={meta["technical_id"]}&entityClass=com.cyoda.tdb.model.treenode.TreeNodeEntity&transitionName={meta["update_transition"]}"
         response = await send_put_request(meta["token"], API_URL, path)
-        return response.json()
+        return response

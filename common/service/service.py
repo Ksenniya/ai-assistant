@@ -2,10 +2,11 @@ import logging
 import threading
 from typing import Any, List
 
+from common.config.config import CHAT_REPOSITORY
 from common.repository.crud_repository import CrudRepository
 from common.service.entity_service_interface import EntityService
 
-logger = logging.getLogger('django')
+logger = logging.getLogger('quart')
 
 class EntityServiceImpl(EntityService):
     _instance = None
@@ -48,7 +49,7 @@ class EntityServiceImpl(EntityService):
 
     async def get_items_by_condition(self, token: str, entity_model: str, entity_version: str, condition: Any) -> List[Any]:
         """Retrieve multiple items based on their IDs."""
-        resp = await self._find_by_criteria(token, entity_model, entity_version, condition)
+        resp = await self._find_by_criteria(token, entity_model, entity_version, condition.get(CHAT_REPOSITORY))
         return resp
 
     async def add_item(self, token: str, entity_model: str, entity_version: str, entity: Any) -> Any:
@@ -60,7 +61,7 @@ class EntityServiceImpl(EntityService):
     async def update_item(self, token: str, entity_model: str, entity_version: str, technical_id: str, entity: Any, meta: Any) -> Any:
         """Update an existing item in the repository."""
         repository_meta = await self._repository.get_meta(token, entity_model, entity_version)
-        meta = meta.update(repository_meta)
+        meta.update(repository_meta)
         resp = await self._repository.update(meta, technical_id, entity)
         return resp
 
@@ -72,6 +73,6 @@ class EntityServiceImpl(EntityService):
     async def delete_item(self, token: str, entity_model: str, entity_version: str, technical_id: str, meta: Any) -> Any:
         """Update an existing item in the repository."""
         repository_meta = await self._repository.get_meta(token, entity_model, entity_version)
-        meta = meta.update(repository_meta)
+        meta.update(repository_meta)
         resp = await self._repository.delete_by_id(meta, technical_id)
         return resp

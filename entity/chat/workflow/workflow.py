@@ -1,3 +1,4 @@
+import copy
 import json
 import asyncio
 import os
@@ -23,14 +24,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 entry_point_to_stack = {
-    SCHEDULED_STACK: scheduler_stack,
-    API_REQUEST_STACK: api_request_stack,
-    EXTERNAL_SOURCES_PULL_BASED_RAW_DATA: data_ingestion_stack,
-    WEB_SCRAPING_PULL_BASED_RAW_DATA: data_ingestion_stack,
-    TRANSACTIONAL_PULL_BASED_RAW_DATA: data_ingestion_stack,
-    WORKFLOW_STACK: workflow_stack,
-    ENTITY_STACK: entity_stack,
-    PROCESSORS_STACK: processors_stack
+    SCHEDULED_STACK: copy.deepcopy(scheduler_stack),
+    API_REQUEST_STACK: copy.deepcopy(api_request_stack),
+    EXTERNAL_SOURCES_PULL_BASED_RAW_DATA: copy.deepcopy(data_ingestion_stack),
+    WEB_SCRAPING_PULL_BASED_RAW_DATA: copy.deepcopy(data_ingestion_stack),
+    TRANSACTIONAL_PULL_BASED_RAW_DATA: copy.deepcopy(data_ingestion_stack),
+    WORKFLOW_STACK: copy.deepcopy(workflow_stack),
+    ENTITY_STACK: copy.deepcopy(entity_stack),
+    PROCESSORS_STACK: copy.deepcopy(processors_stack)
 }
 
 
@@ -49,6 +50,7 @@ async def add_instruction(token, _event, chat):
 
 async def refresh_context(token, _event, chat):
     # clean chat history and re-initialize
+    await git_pull(chat['chat_id'])
     await ai_service.init_cyoda_chat(token=token, chat_id=chat["chat_id"])
     contents = await _build_context_from_project_files(chat=chat, files=_event["context"]["files"],
                                                        excluded_files=_event["context"].get("excluded_files"))
@@ -147,7 +149,7 @@ async def clone_repo(token, _event, chat):
     await _save_file(chat['chat_id'], chat['chat_id'], 'README.txt')
 
     # Prepare the notification text
-    notification_text = f"🎉 Your branch is ready! Please update the project and check it out when you get a chance. 😊: {chat['chat_id']}"
+    notification_text = f"🎉 Your branch is ready! Please update the project and check it out when you get a chance. 😊: {chat['chat_id']} , Check it out here: [Cyoda Platform GitHub](https://github.com/Cyoda-platform/quart-client-template/tree/{chat['chat_id']}) 😄"
 
     # Call the async _send_notification function
     await _send_notification(chat=chat, event=_event, notification_text=notification_text)
@@ -282,7 +284,7 @@ async def generate_entities_template(token, _event, chat):
     for entity in entities:
         # Define a function to handle the task for each entity
         async def handle_entity(_entity):
-            ai_question = f"Based on the data you have in the context and your understanding of the users requirement please generate json data example for entity {_entity.get('entity_name')}. {user_data}. Return only json."
+            ai_question = _event.get("function").get("prompts").get("ai_question").format(entity_name=_entity.get("entity_name"), user_data=user_data)
             if ai_question:
                 # Generate file contents asynchronously for each entity
                 await generate_file_contents(
