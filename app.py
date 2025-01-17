@@ -11,8 +11,9 @@ from quart_cors import cors
 from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX, API_URL
 from common.exception.exceptions import ChatNotFoundException, UnauthorizedAccessException
 from common.util.utils import clean_formatting, send_get_request, git_pull, read_file, \
-    get_project_file_name
+    get_project_file_name, current_timestamp
 from entity.chat.data.data import app_building_stack, APP_BUILDER_FLOW
+from entity.chat.workflow.helper_functions import _save_file
 from logic.logic import process_dialogue_script
 from logic.init import ai_service, cyoda_token, entity_service
 
@@ -162,7 +163,7 @@ def _get_chat_for_user(auth_header, technical_id):
     return chat
 
 
-def _submit_question_helper(chat, question):
+def _submit_question_helper(chat, question, user_file=None):
     # Check if a file has been uploaded
 
     if not question:
@@ -170,7 +171,7 @@ def _submit_question_helper(chat, question):
     if MOCK_AI == "true":
         return jsonify({"message": "mock ai answer"}), 200
     result = ai_service.ai_chat(token=cyoda_token, chat_id=chat["chat_id"], ai_endpoint=CYODA_AI_API,
-                                ai_question=question)
+                                ai_question=question, user_file=user_file)
     return jsonify({"message": result}), 200
 
 
@@ -197,7 +198,7 @@ def rollback_dialogue_script(technical_id, auth_header, chat, question):
     return jsonify({"message": "Answer received"}), 200
 
 
-async def _submit_answer_helper(technical_id, answer, auth_header, chat):
+async def _submit_answer_helper(technical_id, answer, auth_header, chat, user_file=None):
     question_queue = chat["questions_queue"]["new_questions"]
     if not question_queue.empty():
         return jsonify({
@@ -215,6 +216,10 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat):
         next_event["max_iteration"] = -1
     else:
         next_event["answer"] = clean_formatting(answer)
+    if user_file:
+        file_name = user_file.filename
+        _save_file(chat_id=chat["chat_id"], data=user_file, item=file_name)
+        next_event["user_file"] = file_name
     entity_service.update_item(token=auth_header,
                                entity_model="chat",
                                entity_version=ENTITY_VERSION,
@@ -345,8 +350,7 @@ async def add_chat():
         new_questions.put(new_questions_stack.pop())
     chat = {
         "user_id": user_id,
-        "date": "2023-11-07T12:00:00Z",
-        "last_modified": "2023-11-07T12:00:00Z",
+        "date": current_timestamp(),
         "questions_queue": {"new_questions": new_questions, "asked_questions": queue.Queue()},
         "chat_flow": {"current_flow": copy.deepcopy(app_building_stack), "finished_flow": []},
         "name": name,
@@ -477,10 +481,10 @@ async def submit_question(technical_id):
     req_data = await request.form
     req_data = req_data.to_dict()
     question = req_data.get('question')
-    files = await request.files
-    files = files.get('file')
+    file = await request.files
+    user_file = file.get('file')
 
-    return _submit_question_helper(chat, question)
+    return _submit_question_helper(chat, question, user_file)
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/push-notify', methods=['POST'])
@@ -531,8 +535,8 @@ async def submit_answer(technical_id):
 
     # Check if a file has been uploaded
     file = await request.files
-    file = file.get('file')
-    return await _submit_answer_helper(technical_id, answer, auth_header, chat)
+    user_file = file.get('file')
+    return await _submit_answer_helper(technical_id, answer, auth_header, chat, user_file)
 
 
 if __name__ == '__main__':

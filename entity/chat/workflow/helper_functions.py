@@ -8,7 +8,7 @@ import subprocess
 import black
 
 from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO
-from common.util.utils import read_file, get_project_file_name, git_pull, parse_json
+from common.util.utils import read_file, get_project_file_name, git_pull, parse_json, read_file_object
 from entity.chat.data.mock_data_generator import generate_mock_data
 from logic.init import ai_service
 
@@ -64,7 +64,17 @@ def _get_valid_result(data, schema, token, ai_endpoint, chat_id):
 
 def _chat(chat, _event, token, ai_endpoint, chat_id):
     event_prompt, prompt = build_prompt(_event, chat)
-    result = _get_chat_response(prompt=prompt, token=token, ai_endpoint=ai_endpoint, chat_id=chat_id)
+    user_file_name = None
+    if "user_file" in _event:
+        user_file_name = _event["user_file"]
+    result = _get_chat_response(
+        prompt=prompt,
+        token=token,
+        ai_endpoint=ai_endpoint,
+        chat_id=chat_id,
+        user_file=user_file_name,
+    )
+
     if event_prompt.get("schema"):
         try:
             return _get_valid_result(data=result,
@@ -106,12 +116,12 @@ def _enrich_prompt_with_context(_event, chat, event_prompt):
     return prompt_text
 
 
-def _get_chat_response(prompt, token, ai_endpoint, chat_id):
+def _get_chat_response(prompt, token, ai_endpoint, chat_id, user_file=None):
     """Get chat response either from the AI service or mock entity."""
     if MOCK_AI=="true":
         return _mock_ai(prompt)
 
-    return ai_service.ai_chat(token=token, ai_endpoint=ai_endpoint, chat_id=chat_id, ai_question=prompt)
+    return ai_service.ai_chat(token=token, ai_endpoint=ai_endpoint, chat_id=chat_id, ai_question=prompt, user_file=user_file)
 
 
 def _mock_ai(prompt_text):
@@ -145,18 +155,32 @@ def _get_event_template(question, notification, answer, prompt, event):
 
 def _save_file(chat_id, data, item) -> str:
     """
-    Save the workflow to a file inside a specific directory.
+    Save a file (text or binary) inside a specific directory.
+    Handles FileStorage objects directly.
     """
     target_dir = os.path.join(f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}")
     file_path = os.path.join(target_dir, item)
     logger.info(f"Saving to {file_path}")
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    # Process the data and get the output to save
-    output_data = _process_data(data)
-    # Write the processed output data to the file
-    with open(file_path, 'w') as output:
-        output.write(output_data)
-    logger.info(f"saved to {file_path}")
+
+    try:
+        # Handle FileStorage object directly
+        if hasattr(data, "read"):  # Check if `data` is a file-like object
+            data.seek(0)  # Ensure we're at the beginning of the file
+            write_mode = 'wb'  # Assume binary mode for file-like objects
+            with open(file_path, write_mode) as output:
+                output.write(data.read())
+        else:
+            # Process and save as text or binary
+            output_data = _process_data(data)
+            write_mode = 'w' if isinstance(output_data, str) else 'wb'
+            with open(file_path, write_mode) as output:
+                output.write(output_data)
+    except Exception as e:
+        logger.error(f"Failed to save file {file_path}: {e}")
+        raise
+
+    logger.info(f"Saved to {file_path}")
     # Define the path for __init__.py in the target directory
     init_file_target_dir = os.path.dirname(file_path)
     init_file = os.path.join(init_file_target_dir, "__init__.py")
@@ -207,6 +231,9 @@ def hello_world():
 
 # Function to process the data
 def _process_data(data):
+    # If data is binary, then return as is
+    if isinstance(data, (bytes, bytearray)):
+        return data
     # Try to parse the string if it's a string
     if isinstance(data, str):
         try:

@@ -9,6 +9,8 @@ import uuid
 import json
 import jsonschema
 from jsonschema import validate
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from common.config.config import PROJECT_DIR, REPOSITORY_NAME
 
@@ -189,6 +191,15 @@ def read_file(file_path: str):
         logger.error(f"Failed to read JSON file {file_path}: {e}")
         raise
 
+def read_file_object(file_path: str):
+    """Read and return a file object for the given file path."""
+    try:
+        file = open(file_path, 'rb')
+        return file
+    except Exception as e:
+        logger.error(f"Failed to open file {file_path}: {e}")
+        raise
+
 
 def read_json_file(file_path: str):
     try:
@@ -224,15 +235,23 @@ def send_get_request(token: str, api_url: str, path: str) -> Optional[requests.R
         raise
 
 
-def send_post_request(token: str, api_url: str, path: str, data=None, json=None) -> Optional[requests.Response]:
+def send_post_request(token: str, api_url: str, path: str, data=None, json=None, user_file=None) -> Optional[requests.Response]:
     url = f"{api_url}/{path}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
-        "Content-Type": "application/json",
         "Authorization": f"{token}",
     }
+
     try:
-        response = requests.post(url, headers=headers, data=data, json=json)
+        if user_file:
+            # Remove Content-Type from headers as it will be set automatically in multipart
+            files = {'file': user_file}
+            response = requests.post(url, headers=headers, files=files, data=data)
+        else:
+            # Regular JSON request
+            headers["Content-Type"] = "application/json"
+            response = requests.post(url, headers=headers, data=data, json=json)
+
         response.raise_for_status()  # Raise an error for bad status codes
         logger.info(f"POST request to {url} successful.")
         return response
@@ -341,3 +360,7 @@ def git_pull(chat_id):
 
 def get_project_file_name(chat_id, file_name):
     return f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}/{file_name}"
+
+def current_timestamp():
+    now = datetime.now(ZoneInfo("UTC"))
+    return now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + now.strftime("%z")[:3] + ":" + now.strftime("%z")[3:]
