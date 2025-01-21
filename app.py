@@ -12,8 +12,9 @@ from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREF
 from common.exception.exceptions import ChatNotFoundException, UnauthorizedAccessException
 from common.util.utils import clean_formatting, send_get_request, read_file, \
     get_project_file_name, format_json_if_needed
-from entity.chat.data.data import app_building_stack, APP_BUILDER_FLOW, new_questions_stack, DESIGN_PLEASE_WAIT
-from entity.chat.workflow.helper_functions import git_pull, _send_notification, _save_file
+from entity.chat.data.data import app_building_stack, APP_BUILDER_FLOW, DESIGN_PLEASE_WAIT, \
+    APPROVE_WARNING
+from entity.chat.workflow.helper_functions import git_pull, _save_file
 from logic.logic import process_dialogue_script
 from logic.init import ai_service, cyoda_token, entity_service
 
@@ -67,8 +68,8 @@ def auth_required(func):
 
         # Call external service to validate the token
         response = await send_get_request(token, API_URL, "v1")
-
-        if response.get("status") == 401:
+        # todo
+        if not response or (response.get("status") and response.get("status") == 401):
             raise UnauthorizedAccessException("Invalid token")
 
         # If the token is valid, proceed to the requested route
@@ -213,24 +214,34 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat):
     if not answer:
         return jsonify({"message": "Invalid entity"}), 400
     stack = chat["chat_flow"]["current_flow"]
+    finished_stack = chat["chat_flow"].get("finished_flow", [])
     if not stack:
         return jsonify({"message": "Finished"}), 200
+
+    wait_notification = {"notification": DESIGN_PLEASE_WAIT,
+                         "prompt": {},
+                         "answer": None,
+                         "function": None,
+                         "iteration": 0,
+                         "max_iteration": 0
+                         }
+    question_queue.append(wait_notification)
     next_event = stack[-1]
+    while next_event.get("notification"):
+        wait_notification = stack.pop()
+        question_queue.append(wait_notification)
+        next_event = stack[-1]
     if answer == PUSH_NOTIFICATION:
         next_event["answer"] = clean_formatting(
             await read_file(get_project_file_name(chat['chat_id'], next_event["file_name"])))
     elif answer == APPROVE:
+        if finished_stack[-1].get("question") and not finished_stack[-1].get("approve"):
+            return jsonify({
+                "message": APPROVE_WARNING}), 400
         next_event["max_iteration"] = -1
     else:
         next_event["answer"] = clean_formatting(answer)
-    wait_notification = {"notification": DESIGN_PLEASE_WAIT,
-     "prompt": {},
-     "answer": None,
-     "function": None,
-     "iteration": 0,
-     "max_iteration": 0
-     }
-    question_queue.append(wait_notification)
+
     await entity_service.update_item(token=auth_header,
                                      entity_model="chat",
                                      entity_version=ENTITY_VERSION,
@@ -335,15 +346,15 @@ async def add_chat():
     # Here, handle the answer (e.g., store it, process it, etc.)
     # todo use tech id as chat id
 
-    new_questions = []
-    questions_stack = copy.deepcopy(new_questions_stack)
-    while questions_stack:
-        new_questions.append(questions_stack.pop())
+    # new_questions = []
+    # questions_stack = copy.deepcopy(new_questions_stack)
+    # while questions_stack:
+    #     new_questions.append(questions_stack.pop())
     chat = {
         "user_id": user_id,
         "date": "2023-11-07T12:00:00Z",
         "last_modified": "2023-11-07T12:00:00Z",
-        "questions_queue": {"new_questions": new_questions, "asked_questions": []},
+        "questions_queue": {"new_questions": [], "asked_questions": []},
         "chat_flow": {"current_flow": copy.deepcopy(app_building_stack), "finished_flow": []},
         "name": name,
         "description": description
@@ -454,7 +465,13 @@ def _process_question(question):
         new_question["question"] = " ".join(str(item) for item in result)
 
         return new_question
+    if question.get("question") and question.get("example_answers"):
+        question["question"] = f"""
+{question["question"]}
 
+***Example answers***:
+{'\n\n'.join([answer.strip() for answer in question.get("example_answers", [])])}
+"""
     # Return the original question if conditions are not met
     return question
 
@@ -467,7 +484,9 @@ async def edit_file(technical_id):
     req_data = await request.get_json()
     # todo
     data = req_data.get('notification')
-    await _save_file(chat_id = chat["chat_id"], _data=data, item = req_data.get('file_name'))
+    if data and len(str(data).encode('utf-8')) > 1 * 1024 * 1024:
+        return jsonify({"error": "Answer size exceeds 1MB limit"}), 400
+    await _save_file(chat_id=chat["chat_id"], _data=data, item=req_data.get('file_name'))
     finished_flow = chat["chat_flow"].get("finished_flow", [])
     for i in range(len(finished_flow) - 1, -1, -1):  # Start from the end
         if finished_flow[i].get("file_name") and finished_flow[i].get("file_name") == req_data.get('file_name'):
@@ -546,6 +565,8 @@ async def submit_answer_text(technical_id):
     chat = await _get_chat_for_user(auth_header, technical_id)
     req_data = await request.get_json()
     answer = req_data.get('answer')
+    if answer and len(str(answer).encode('utf-8')) > 1 * 1024 * 1024:
+        return jsonify({"error": "Answer size exceeds 1MB limit"}), 400
     return await _submit_answer_helper(technical_id, answer, auth_header, chat)
 
 

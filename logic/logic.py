@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Any
 
 from common.config.config import CYODA_AI_API, ENTITY_VERSION
-from common.config.conts import NOTIFICATION, QUESTION, FUNCTION, PROMPT, CAN_PROCEED
+from common.config.conts import NOTIFICATION, QUESTION, FUNCTION, PROMPT, CAN_PROCEED, INFO
 from entity.workflow import dispatch_function
 from entity.chat.workflow.helper_functions import get_event_template, save_result_to_file, run_chat
 from logic.init import cyoda_token, entity_service
@@ -36,7 +36,7 @@ async def process_answer(token, _event: Dict[str, Any], chat) -> None:
         stack.append(_event)
         if _event.get("additional_questions"):
             for additional_question in _event.get("additional_questions", [])[::-1]:
-                stack.append({QUESTION: additional_question})
+                stack.append(additional_question)
         stack.append(question_event)
     else:
         notification_event = get_event_template(notification=result, event=_event, question='', answer='', prompt={})
@@ -90,7 +90,7 @@ async def process_dialogue_script(token, technical_id) -> None:
             # Now append the event to the list
             chat["questions_queue"]["new_questions"].append(event)
 
-    while stack and (stack[-1].get(QUESTION) or stack[-1].get(NOTIFICATION)):
+    while stack and (stack[-1].get(QUESTION) or (stack[-1].get(NOTIFICATION) and not stack[-1].get(INFO))):
         event = stack.pop()
         finished_stack.append(event)
         if "questions_queue" not in chat:

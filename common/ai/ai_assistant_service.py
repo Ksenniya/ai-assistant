@@ -44,6 +44,8 @@ class AiAssistantService:
         return resp.get('message')
 
     async def ai_chat(self, token, chat_id, ai_endpoint, ai_question):
+        if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
+            return {"error": "Answer size exceeds 1MB limit"}
         if MOCK_AI=="true":
             return {"entity": "some random text"}
         if ai_endpoint == CYODA_AI_API:
@@ -60,6 +62,8 @@ class AiAssistantService:
             return resp
 
     async def chat_cyoda(self, token, chat_id, ai_question):
+        if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
+            return {"error": "Answer size exceeds 1MB limit"}
         data = json.dumps({"chat_id": f"{chat_id}", "question": f"{ai_question}"})
         resp = await send_post_request(token, CYODA_AI_URL, "%s/chat" % API_V_CYODA_, data)
         return resp.get('message')
@@ -67,6 +71,8 @@ class AiAssistantService:
 
 
     async def chat_workflow(self, token, chat_id, ai_question):
+        if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
+            return {"error": "Answer size exceeds 1MB limit"}
         data = json.dumps({
             "question": f"{ai_question}",
             "return_object": "workflow",
@@ -121,6 +127,8 @@ class AiAssistantService:
 
 
     async def chat_connection(self, token, chat_id, ai_question):
+        if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
+            return {"error": "Answer size exceeds 1MB limit"}
         data = json.dumps({
             "question": f"{ai_question}",
             "return_object": "import-connections",
@@ -131,6 +139,8 @@ class AiAssistantService:
 
 
     async def chat_random(self, token, chat_id, ai_question):
+        if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
+            return {"error": "Answer size exceeds 1MB limit"}
         data = json.dumps({
             "question": f"{ai_question}",
             "return_object": "random",

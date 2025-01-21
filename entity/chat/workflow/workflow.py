@@ -13,7 +13,7 @@ from common.config.conts import SCHEDULED_STACK, API_REQUEST_STACK, \
 from common.config.enums import TextType
 from common.util.utils import read_file, get_project_file_name, parse_json, parse_workflow_json
 from entity.chat.data.data import scheduler_stack, api_request_stack, workflow_stack, entity_stack, processors_stack, \
-    data_ingestion_stack
+    data_ingestion_stack, PUSHED_CHANGES_NOTIFICATION, BRANCH_READY_NOTIFICATION
 from entity.chat.workflow.helper_functions import _save_file, _sort_entities, _send_notification, \
     _build_context_from_project_files, run_chat, _send_notification_with_file, git_pull, \
     generate_data_ingestion_code_for_entity, generate_file_contents
@@ -89,7 +89,8 @@ async def add_design_stack(token, _event, chat) -> list:
             entities_dict[entity_type].append(entity)
         else:
             entities_dict[ENTITY_STACK].append(entity)
-    for stack_key in [ENTITY_STACK, WEB_SCRAPING_PULL_BASED_RAW_DATA, TRANSACTIONAL_PULL_BASED_RAW_DATA, EXTERNAL_SOURCES_PULL_BASED_RAW_DATA]:
+    for stack_key in [ENTITY_STACK, WEB_SCRAPING_PULL_BASED_RAW_DATA, TRANSACTIONAL_PULL_BASED_RAW_DATA,
+                      EXTERNAL_SOURCES_PULL_BASED_RAW_DATA]:
         if stack_key in entities_dict:
             stack.extend(entry_point_to_stack.get(stack_key, lambda x: [])(entities_dict[stack_key]))
 
@@ -149,7 +150,7 @@ async def clone_repo(token, _event, chat):
     await _save_file(chat['chat_id'], chat['chat_id'], 'README.txt')
 
     # Prepare the notification text
-    notification_text = f"🎉 Your branch is ready! Please update the project and check it out when you get a chance. 😊: {chat['chat_id']} , Check it out here: [Cyoda Platform GitHub](https://github.com/Cyoda-platform/quart-client-template/tree/{chat['chat_id']}) 😄"
+    notification_text = BRANCH_READY_NOTIFICATION.format(chat_id=chat['chat_id'])
 
     # Call the async _send_notification function
     await _send_notification(chat=chat, event=_event, notification_text=notification_text)
@@ -161,7 +162,8 @@ async def save_raw_data_to_entity_file(token, _event, chat) -> str:
     """
     file_name = _event["file_name"]
     await _save_file(chat_id=chat["chat_id"], _data=json.dumps(_event["answer"]), item=file_name)
-    notification_text = f"I've pushed the changes to {file_name} . Could you please take a look when you get a chance? 😸"
+    notification_text = PUSHED_CHANGES_NOTIFICATION.format(file_name=file_name, repository_url=REPOSITORY_URL,
+                                                           chat_id=chat["chat_id"])
     await _send_notification(chat=chat, event=_event, notification_text=notification_text)
     return _event["answer"]
 
@@ -224,8 +226,12 @@ async def generate_data_ingestion_entities_template(token, _event, chat):
                 if file_name and file_text:
                     await _save_file(chat_id=chat["chat_id"], _data=json.dumps(file_text), item=file_name)
                     await _send_notification_with_file(chat=chat, event=_event,
-                                                       notification_text=f"file_name: {file_name} \n {file_text}",
-                                                       file_name=file_name, editable=True)
+                                                       notification_text=f"""
+The entity has been saved to: {REPOSITORY_URL}/tree/{chat["chat_id"]}/{file_name}
+
+{file_text}""",
+                                                       file_name=file_name,
+                                                       editable=True)
         except Exception as e:
             logger.error(f"Unexpected error for entity {entity.get("entity_name")}: {e}")
             logger.exception(e)
@@ -284,7 +290,8 @@ async def generate_entities_template(token, _event, chat):
     for entity in entities:
         # Define a function to handle the task for each entity
         async def handle_entity(_entity):
-            ai_question = _event.get("function").get("prompts").get("ai_question").format(entity_name=_entity.get("entity_name"), user_data=user_data)
+            ai_question = _event.get("function").get("prompts").get("ai_question").format(
+                entity_name=_entity.get("entity_name"), user_data=user_data)
             if ai_question:
                 # Generate file contents asynchronously for each entity
                 await generate_file_contents(
@@ -301,6 +308,11 @@ async def generate_entities_template(token, _event, chat):
     # Wait for all tasks to complete
     await asyncio.gather(*tasks)
     # Send notification after all tasks are completed
+    await _send_notification(chat=chat, event=_event, notification_text=_event.get("notification_text"))
+
+
+async def finish_flow(token, _event, chat):
+    await _save_file(chat_id=chat["chat_id"], _data=json.dumps(chat), item=_event["file_name"])
     await _send_notification(chat=chat, event=_event, notification_text=_event.get("notification_text"))
 
 

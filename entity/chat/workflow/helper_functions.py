@@ -7,10 +7,11 @@ import os
 import aiofiles
 import black
 
-from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO, CYODA_AI_API
+from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO, \
+    CYODA_AI_API, REPOSITORY_URL
 from common.config.enums import TextType
 from common.util.utils import parse_json, get_project_file_name, read_file
-from entity.chat.data.mock_data_generator import generate_mock_data
+from entity.chat.data.data import PUSHED_CHANGES_NOTIFICATION
 from logic.init import ai_service
 
 # Configure logging
@@ -126,7 +127,8 @@ def get_event_template(question, notification, answer, prompt, event):
         "data": event.get('data', {}),
         "entity": event.get('entity', {}),
         "file_name": event.get('file_name', ''),
-        "context": event.get('context', {})
+        "context": event.get('context', {}),
+        "approve": True
     }
 
     # Iterate through additional key-value pairs in the event object
@@ -149,7 +151,7 @@ async def _save_file(chat_id, _data, item) -> str:
     await asyncio.to_thread(os.makedirs, os.path.dirname(file_path), exist_ok=True)
 
     # Process the data and get the output to save
-    output_data = _process_data(_data)
+    output_data = _process_data(_data) if item.endswith('.json') or item.endswith('.py') else _data
 
     # Write the processed output data to the file asynchronously
     async with aiofiles.open(file_path, 'w') as output:
@@ -404,7 +406,7 @@ async def save_result_to_file(chat, _event, _data):
     file_name = _event.get("file_name")
     if file_name:
         await _save_file(chat_id=chat["chat_id"], _data=_data, item=file_name)
-        notification_text = f"I've pushed the changes to {file_name} . Could you please take a look when you get a chance? 😸"
+        notification_text = PUSHED_CHANGES_NOTIFICATION.format(file_name=file_name, repository_url=REPOSITORY_URL, chat_id=chat["chat_id"])
         await _send_notification(chat=chat, event=_event, notification_text=notification_text)
 
 async def generate_data_ingestion_code_for_entity(_event, chat, entity, files_notifications, target_dir, token):
@@ -452,7 +454,12 @@ async def generate_file_contents(_event, chat, file_name, ai_question,
         item=file_name
     )
     # Send a notification with the generated code file
-    notification_text =  f"file_name: {file_name}\n{generated_text}"
+    notification_text = PUSHED_CHANGES_NOTIFICATION.format(file_name=file_name, repository_url=REPOSITORY_URL,
+                                                           chat_id=chat["chat_id"])
+    await _send_notification(chat=chat, event=_event, notification_text=notification_text)
+    notification_text =  f"""{REPOSITORY_URL}/tree/{chat['chat_id']}/{file_name}
+
+{generated_text}"""
     await _send_notification_with_file(
         chat=chat,
         event=_event,

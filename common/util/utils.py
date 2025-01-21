@@ -47,19 +47,110 @@ def _normalize_boolean_json(json_data):
     return json_data
 
 
-def parse_json(result: str) -> str:
-    if isinstance(result, dict):
-        return json.dumps(result)
-    if result.startswith("```"):
-        return "\n".join(result.split("\n")[1:-1])
-    if not result.startswith("{"):
-        start_index = result.find("```json")
-        if start_index != -1:
-            start_index += len("```json\n")
-            end_index = result.find("```", start_index)
-            return result[start_index:end_index].strip()
-    return result
+def remove_js_style_comments_outside_strings(code: str) -> str:
+    """
+    Remove //... comments ONLY if they appear outside of a quoted string.
 
+    This prevents 'https://...' in a JSON string from being mistaken as a comment.
+    """
+
+    result = []
+    in_string = False
+    escape_char = False
+    i = 0
+    length = len(code)
+
+    while i < length:
+        char = code[i]
+
+        # Check for string toggle (double quotes only for JSON)
+        if char == '"' and not escape_char:
+            # Toggle string on/off
+            in_string = not in_string
+            result.append(char)
+        elif not in_string:
+            # We are outside a string, so check if we have //
+            if char == '/' and i + 1 < length and code[i + 1] == '/':
+                # Skip rest of the line
+                # Move i to the next newline or end of text
+                i += 2
+                while i < length and code[i] not in ('\n', '\r'):
+                    i += 1
+                # Do NOT append the '//...' to result
+                # We effectively remove it
+                continue
+            else:
+                # Normal character outside string
+                result.append(char)
+        else:
+            # Inside a string
+            result.append(char)
+
+        # Handle escape chars inside strings
+        if char == '\\' and in_string and not escape_char:
+            # Next character is escaped
+            escape_char = True
+        else:
+            escape_char = False
+
+        i += 1
+
+    return ''.join(result)
+
+
+def parse_json(text: str) -> str:
+    """
+    1. Find the first occurrence of '{' or '[' and the matching last occurrence
+       of '}' or ']', respectively (very naive bracket slicing).
+    2. Remove only real JS-style comments (// ...) outside of strings.
+    3. Attempt to parse the substring as JSON.
+    4. Return prettified JSON if successful, otherwise the original text.
+    """
+
+    original_text = text
+    text = text.strip()
+
+    # Find earliest occurrences
+    first_curly = text.find('{')
+    first_square = text.find('[')
+
+    if first_curly == -1 and first_square == -1:
+        # No bracket found
+        return original_text
+
+    # Decide which bracket to use based on which occurs first
+    if first_curly == -1:
+        start_index = first_square
+        close_bracket = ']'
+    elif first_square == -1:
+        start_index = first_curly
+        close_bracket = '}'
+    else:
+        if first_curly < first_square:
+            start_index = first_curly
+            close_bracket = '}'
+        else:
+            start_index = first_square
+            close_bracket = ']'
+
+    # Find the last occurrence of that bracket
+    end_index = text.rfind(close_bracket)
+    if end_index == -1 or end_index < start_index:
+        return original_text
+
+    # Extract the substring
+    json_substring = text[start_index:end_index + 1]
+
+    # Remove only actual JS-style comments outside strings
+    json_substring = remove_js_style_comments_outside_strings(json_substring)
+
+    # Attempt to parse the cleaned substring
+    try:
+        parsed = json.loads(json_substring)
+        return json.dumps(parsed, ensure_ascii=False, indent=2)
+    except json.JSONDecodeError:
+        # If it fails, just return the original
+        return original_text
 
 def parse_workflow_json(result: str) -> str:
     # Function to replace single quotes with double quotes and handle True/False
@@ -107,6 +198,117 @@ def parse_workflow_json(result: str) -> str:
 
     # Return result as-is if it's neither a dictionary nor a valid string format
     return result
+
+
+def main():
+    # Example input
+    input_data = """
+Here is an example JSON data structure for the entity `data_analysis_job`, reflecting the business logic based on the user's requirement to analyze London Houses data using pandas:
+
+```json
+{
+  "job_id": "data_analysis_job_001",
+  "job_name": "Analyze London Houses Data",
+  "job_status": "completed",
+  "start_time": "2023-10-01T10:05:00Z",
+  "end_time": "2023-10-01T10:30:00Z",
+  "input_data": {
+    "raw_data_entity_id": "raw_data_entity_001",
+    "data_source": "https://raw.githubusercontent.com/Cyoda-platform/cyoda-ai/refs/heads/ai-2.x/data/test-inputs/v1/connections/london_houses.csv"
+  },
+  "analysis_parameters": {
+    "metrics": [
+      {
+        "name": "average_price",
+        "description": "Calculate the average price of the houses.",
+        "value": 1371200
+      },
+      {
+        "name": "median_square_meters",
+        "description": "Find the median square meters of the houses.",
+        "value": 168
+      }
+    ],
+    "filters": {
+      "neighborhood": ["Notting Hill", "Westminster"],
+      "min_bedrooms": 2,
+      "max_bathrooms": 3
+    }
+  },
+  "analysis_results": {
+    "total_houses_analyzed": 3,
+    "houses_with_garden": 2,
+    "houses_with_parking": 1,
+    "price_distribution": {
+      "min_price": 1476000,
+      "max_price": 2291200,
+      "average_price": 1371200
+    },
+    "visualizations": [
+      {
+        "type": "bar_chart",
+        "title": "Price Distribution by Neighborhood",
+        "data": [
+          {
+            "neighborhood": "Notting Hill",
+            "count": 1,
+            "average_price": 2291200
+          },
+          {
+            "neighborhood": "Westminster",
+            "count": 1,
+            "average_price": 1476000
+          },
+          {
+            "neighborhood": "Soho",
+            "count": 1,
+            "average_price": 1881600
+          }
+        ]
+      },
+      {
+        "type": "scatter_plot",
+        "title": "Square Meters vs Price",
+        "data": [
+          {
+            "square_meters": 179,
+            "price": 2291200
+          },
+          {
+            "square_meters": 123,
+            "price": 1476000
+          },
+          {
+            "square_meters": 168,
+            "price": 1881600
+          }
+        ]
+      }
+    ]
+  },
+  "report_output": {
+    "report_id": "report_001",
+    "report_format": "PDF",
+    "generated_at": "2023-10-01T10:35:00Z",
+    "report_link": "https://example.com/reports/report_001.pdf"
+  }
+}
+```
+
+### Explanation
+- **job_id, job_name, job_status**: Basic identifiers and status of the analysis job.
+- **input_data**: Contains references to the raw data entity that is being analyzed and where the data is sourced from.
+- **analysis_parameters**: Specifies the metrics to be calculated and any filters applied during the analysis.
+- **analysis_results**: Summarizes the outcomes of the data analysis, including total houses analyzed, distribution of prices, and visual representations of the results.
+- **report_output**: Information about the generated report, including its format, generation time, and a link to access it. 
+
+This JSON structure provides a comprehensive overview of the analysis conducted on the London Houses data, reflecting the required business logic for the `data_analysis_job` entity.   """
+    output_data = parse_json(input_data)
+
+    print(output_data)
+
+if __name__ == "__main__":
+    main()
 
 async def validate_result(data: str, file_path: str, schema: Optional[str]) -> str:
     if file_path:
