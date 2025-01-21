@@ -220,6 +220,7 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat, user_fi
         file_name = user_file.filename
         _save_file(chat_id=chat["chat_id"], data=user_file, item=file_name)
         next_event["user_file"] = file_name
+        next_event["user_file_processed"] = False
     entity_service.update_item(token=auth_header,
                                entity_model="chat",
                                entity_version=ENTITY_VERSION,

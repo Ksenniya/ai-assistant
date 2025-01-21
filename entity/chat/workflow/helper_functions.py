@@ -65,8 +65,10 @@ def _get_valid_result(data, schema, token, ai_endpoint, chat_id):
 def _chat(chat, _event, token, ai_endpoint, chat_id):
     event_prompt, prompt = build_prompt(_event, chat)
     user_file_name = None
-    if "user_file" in _event:
-        user_file_name = _event["user_file"]
+    if _event.get("user_file") and _event.get("user_file_processed") is False:
+        user_file_name = _event.get("user_file")
+        _event["user_file_processed"] = True
+
     result = _get_chat_response(
         prompt=prompt,
         token=token,
