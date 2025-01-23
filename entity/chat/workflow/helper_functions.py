@@ -155,12 +155,12 @@ def _get_event_template(question, notification, answer, prompt, event):
     return final_json
 
 
-def _save_file(chat_id, data, item) -> str:
+def _save_file(chat_id, data, item, folder_name=None) -> str:
     """
     Save a file (text or binary) inside a specific directory.
     Handles FileStorage objects directly.
     """
-    target_dir = os.path.join(f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}")
+    target_dir = os.path.join(f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}", folder_name or "")
     file_path = os.path.join(target_dir, item)
     logger.info(f"Saving to {file_path}")
     os.makedirs(os.path.dirname(file_path), exist_ok=True)

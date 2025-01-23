@@ -170,8 +170,12 @@ def _submit_question_helper(chat, question, user_file=None):
         return jsonify({"message": "Invalid entity"}), 400
     if MOCK_AI == "true":
         return jsonify({"message": "mock ai answer"}), 200
+    if user_file:
+        file_name = user_file.filename
+        folder_name = "user_files"
+        _save_file(chat_id=chat["chat_id"], data=user_file, item=file_name, folder_name=folder_name)
     result = ai_service.ai_chat(token=cyoda_token, chat_id=chat["chat_id"], ai_endpoint=CYODA_AI_API,
-                                ai_question=question, user_file=user_file)
+                                ai_question=question, user_file=file_name)
     return jsonify({"message": result}), 200
 
 
@@ -218,7 +222,8 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat, user_fi
         next_event["answer"] = clean_formatting(answer)
     if user_file:
         file_name = user_file.filename
-        _save_file(chat_id=chat["chat_id"], data=user_file, item=file_name)
+        folder_name = "user_files"
+        _save_file(chat_id=chat["chat_id"], data=user_file, item=file_name, folder_name=folder_name)
         next_event["user_file"] = file_name
         next_event["user_file_processed"] = False
     entity_service.update_item(token=auth_header,

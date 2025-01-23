@@ -63,13 +63,11 @@ class AiAssistantService:
     def chat_cyoda(self, token, chat_id, ai_question, user_file=None):
         if user_file:
             if isinstance(user_file, str):
-                file_path = get_project_file_name(chat_id, user_file)
-                user_file_content = read_file_object(file_path)
-            else:
-                user_file_content = user_file
+                file_path = get_project_file_name(chat_id, user_file, folder_name="user_files")
+                user_file = read_file_object(file_path)
 
             data = {"chat_id": f"{chat_id}", "question": f"{ai_question}"}
-            resp = send_post_request(token, CYODA_AI_URL, "%s/chat-file" % API_V_CYODA_, data, user_file=user_file_content)
+            resp = send_post_request(token, CYODA_AI_URL, "%s/chat-file" % API_V_CYODA_, data, user_file=user_file)
             return resp.json()
         else:
             data = json.dumps({"chat_id": f"{chat_id}", "question": f"{ai_question}"})
@@ -145,16 +143,14 @@ class AiAssistantService:
     def chat_random(self, token, chat_id, ai_question, user_file=None):
         if user_file:
             if isinstance(user_file, str):
-                file_path = get_project_file_name(chat_id, user_file)
-                user_file_content = read_file_object(file_path)
-            else:
-                user_file_content = user_file
+                file_path = get_project_file_name(chat_id, user_file, folder_name="user_files")
+                user_file = read_file_object(file_path)
             data = {
             "question": f"{ai_question}",
             "return_object": "random",
             "chat_id": f"{chat_id}"
             }
-            resp = send_post_request(token, CYODA_AI_URL, "%s/chat-file" % API_V_RANDOM_, data, user_file=user_file_content)
+            resp = send_post_request(token, CYODA_AI_URL, "%s/chat-file" % API_V_RANDOM_, data, user_file=user_file)
             return resp.json()
         else:
             data = json.dumps({

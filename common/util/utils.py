@@ -191,6 +191,7 @@ def read_file(file_path: str):
         logger.error(f"Failed to read JSON file {file_path}: {e}")
         raise
 
+
 def read_file_object(file_path: str):
     """Read and return a file object for the given file path."""
     try:
@@ -358,8 +359,12 @@ def git_pull(chat_id):
         logger.exception(e)
 
 
-def get_project_file_name(chat_id, file_name):
-    return f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}/{file_name}"
+def get_project_file_name(chat_id, file_name, folder_name=None):
+    if folder_name:
+        return f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}/{folder_name}/{file_name}"
+    else:
+        return f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}/{file_name}"
+
 
 def current_timestamp():
     now = datetime.now(ZoneInfo("UTC"))
