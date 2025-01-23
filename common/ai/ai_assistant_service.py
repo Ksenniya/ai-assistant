@@ -52,13 +52,13 @@ class AiAssistantService:
         resp = await send_post_request(token, CYODA_AI_URL, "%s/initial" % API_V_RANDOM_, data)
         return resp.get('message')
 
-    async def ai_chat(self, token, chat_id, ai_endpoint, ai_question):
+    async def ai_chat(self, token, chat_id, ai_endpoint, ai_question, user_file=None):
         if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
             return {"error": "Answer size exceeds 1MB limit"}
         if MOCK_AI=="true":
             return {"entity": "some random text"}
         if ai_endpoint == CYODA_AI_API:
-            resp = await self.chat_cyoda(token=token, chat_id=chat_id, ai_question=ai_question)
+            resp = await self.chat_cyoda(token=token, chat_id=chat_id, ai_question=ai_question, user_file=user_file)
         elif ai_endpoint == WORKFLOW_AI_API:
             resp = await self.chat_workflow(token=token, chat_id=chat_id, ai_question=ai_question)
         elif ai_endpoint == CONNECTION_AI_API:
@@ -67,15 +67,22 @@ class AiAssistantService:
             resp = await self.chat_random(token=token, chat_id=chat_id, ai_question=ai_question)
         else:
             return {"error": "Invalid endpoint"}
-        add_to_dataset(ai_endpoint=ai_endpoint, ai_question=ai_question, chat_id=chat_id, answer=resp)
+        add_to_dataset(ai_endpoint=ai_endpoint, ai_question=ai_question, chat_id=chat_id, answer=resp, user_file=user_file)
         return resp
 
-    async def chat_cyoda(self, token, chat_id, ai_question):
-        if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
-            return {"error": "Answer size exceeds 1MB limit"}
-        data = json.dumps({"chat_id": f"{chat_id}", "question": f"{ai_question}"})
-        resp = await send_post_request(token, CYODA_AI_URL, "%s/chat" % API_V_CYODA_, data)
-        return resp.get('message')
+    def chat_cyoda(self, token, chat_id, ai_question, user_file=None):
+        if user_file:
+            if isinstance(user_file, str):
+                file_path = get_project_file_name(chat_id, user_file, folder_name="user_files")
+                user_file = read_file_object(file_path)
+
+            data = {"chat_id": f"{chat_id}", "question": f"{ai_question}"}
+            resp = send_post_request(token, CYODA_AI_URL, "%s/chat-file" % API_V_CYODA_, data, user_file=user_file)
+            return resp.json()
+        else:
+            data = json.dumps({"chat_id": f"{chat_id}", "question": f"{ai_question}"})
+            resp = send_post_request(token, CYODA_AI_URL, "%s/chat" % API_V_CYODA_, data)
+            return resp.json()
 
 
 
@@ -147,13 +154,26 @@ class AiAssistantService:
         return resp.get('message')
 
 
-    async def chat_random(self, token, chat_id, ai_question):
+    async def chat_random(self, token, chat_id, ai_question, user_file=None):
         if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
             return {"error": "Answer size exceeds 1MB limit"}
-        data = json.dumps({
+
+        if user_file:
+            if isinstance(user_file, str):
+                file_path = get_project_file_name(chat_id, user_file, folder_name="user_files")
+                user_file = read_file_object(file_path)
+            data = {
             "question": f"{ai_question}",
             "return_object": "random",
             "chat_id": f"{chat_id}"
-        })
-        resp = await send_post_request(token, CYODA_AI_URL, "%s/chat" % API_V_RANDOM_, data)
-        return resp.get('message')
+            }
+            resp = send_post_request(token, CYODA_AI_URL, "%s/chat-file" % API_V_RANDOM_, data, user_file=user_file)
+            return resp.json()
+        else:
+            data = json.dumps({
+                "question": f"{ai_question}",
+                "return_object": "random",
+                "chat_id": f"{chat_id}"
+            })
+            resp = await send_post_request(token, CYODA_AI_URL, "%s/chat" % API_V_RANDOM_, data)
+            return resp.get('message')
