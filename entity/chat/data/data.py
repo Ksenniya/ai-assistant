@@ -2,7 +2,7 @@ from common.config.config import MAX_ITERATION, RANDOM_AI_API
 
 DESIGN_PLEASE_WAIT = "⚙️ Generating your Cyoda design... please wait a moment! ⏳"
 APPROVE_WARNING = "Sorry, you cannot skip this question. If you're unsure about anything, please refer to the example answers for guidance. If you need further help, just let us know! 😊 Apologies for the inconvenience!🙌"
-PLEASE_RESUBMIT = "⚠️ Please resubmit your answer. ⚠️"
+OPERATION_FAILED_WARNING = "⚠️ Sorry, this action is not available right now. Please try again or wait for new questions ⚠️"
 
 DESIGN_IN_PROGRESS_WARNING = "Sorry, you cannot submit answer right now. We are working on Cyoda design. Could you please wait  a little"
 BRANCH_READY_NOTIFICATION = """🎉 **Your branch is ready!** Please update the project and check it out when you get a chance. 😊

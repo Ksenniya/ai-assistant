@@ -13,7 +13,7 @@ from common.exception.exceptions import ChatNotFoundException, UnauthorizedAcces
 from common.util.utils import clean_formatting, send_get_request, read_file, \
     get_project_file_name, format_json_if_needed
 from entity.chat.data.data import app_building_stack, APP_BUILDER_FLOW, DESIGN_PLEASE_WAIT, \
-    APPROVE_WARNING, DESIGN_IN_PROGRESS_WARNING, PLEASE_RESUBMIT
+    APPROVE_WARNING, DESIGN_IN_PROGRESS_WARNING, OPERATION_FAILED_WARNING
 from entity.chat.workflow.helper_functions import git_pull, _save_file
 from logic.logic import process_dialogue_script
 from logic.init import ai_service, cyoda_token, entity_service, chat_lock
@@ -551,13 +551,7 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat):
                          "iteration": 0,
                          "max_iteration": 0
                          }
-    retry_notification = {"notification": PLEASE_RESUBMIT,
-                         "prompt": {},
-                         "answer": None,
-                         "function": None,
-                         "iteration": 0,
-                         "max_iteration": 0
-                         }
+
     async with chat_lock:
         stack = chat["chat_flow"]["current_flow"]
         finished_stack = chat["chat_flow"].get("finished_flow", [])
@@ -570,6 +564,7 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat):
             question_queue.append(wait_notification)
             next_event = stack[-1]
         if not finished_stack[-1].get("question"):
+            retry_notification = {"notification": DESIGN_IN_PROGRESS_WARNING}
             question_queue.append(retry_notification)
             return jsonify({
                 "message": DESIGN_IN_PROGRESS_WARNING}), 400
@@ -578,6 +573,7 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat):
                 await read_file(get_project_file_name(chat['chat_id'], next_event["file_name"])))
         elif answer == APPROVE:
             if finished_stack[-1].get("question") and not finished_stack[-1].get("approve"):
+                retry_notification = {"notification": APPROVE_WARNING}
                 question_queue.append(retry_notification)
                 return jsonify({
                     "message": APPROVE_WARNING}), 400
