@@ -2,7 +2,8 @@ import json
 import logging
 
 from common.config.config import CYODA_AI_URL, MOCK_AI, CYODA_AI_API, WORKFLOW_AI_API, CONNECTION_AI_API, RANDOM_AI_API
-from common.util.utils import parse_json, validate_result, send_post_request, ValidationErrorException
+from common.util.utils import parse_json, validate_result, send_post_request, ValidationErrorException, \
+    read_file_object, get_project_file_name
 
 API_V_CONNECTIONS_ = "api/v1/connections"
 API_V_CYODA_ = "api/v1/cyoda"
@@ -43,11 +44,11 @@ class AiAssistantService:
         resp = send_post_request(token, CYODA_AI_URL, "%s/initial" % API_V_RANDOM_, data)
         return resp.json()
 
-    def ai_chat(self, token, chat_id, ai_endpoint, ai_question):
+    def ai_chat(self, token, chat_id, ai_endpoint, ai_question, user_file=None):
         if MOCK_AI=="true":
             return {"entity": "some random text"}
         if ai_endpoint == CYODA_AI_API:
-            resp = self.chat_cyoda(token=token, chat_id=chat_id, ai_question=ai_question)
+            resp = self.chat_cyoda(token=token, chat_id=chat_id, ai_question=ai_question, user_file=user_file)
             return resp["message"]
         if ai_endpoint == WORKFLOW_AI_API:
             resp = self.chat_workflow(token=token, chat_id=chat_id, ai_question=ai_question)
@@ -56,13 +57,22 @@ class AiAssistantService:
             resp = self.chat_connection(token=token, chat_id=chat_id, ai_question=ai_question)
             return resp["message"]
         if ai_endpoint == RANDOM_AI_API:
-            resp = self.chat_random(token=token, chat_id=chat_id, ai_question=ai_question)
+            resp = self.chat_random(token=token, chat_id=chat_id, ai_question=ai_question, user_file=user_file)
             return resp["message"]
 
-    def chat_cyoda(self, token, chat_id, ai_question):
-        data = json.dumps({"chat_id": f"{chat_id}", "question": f"{ai_question}"})
-        resp = send_post_request(token, CYODA_AI_URL, "%s/chat" % API_V_CYODA_, data)
-        return resp.json()
+    def chat_cyoda(self, token, chat_id, ai_question, user_file=None):
+        if user_file:
+            if isinstance(user_file, str):
+                file_path = get_project_file_name(chat_id, user_file, folder_name="user_files")
+                user_file = read_file_object(file_path)
+
+            data = {"chat_id": f"{chat_id}", "question": f"{ai_question}"}
+            resp = send_post_request(token, CYODA_AI_URL, "%s/chat-file" % API_V_CYODA_, data, user_file=user_file)
+            return resp.json()
+        else:
+            data = json.dumps({"chat_id": f"{chat_id}", "question": f"{ai_question}"})
+            resp = send_post_request(token, CYODA_AI_URL, "%s/chat" % API_V_CYODA_, data)
+            return resp.json()
 
 
 
@@ -130,11 +140,23 @@ class AiAssistantService:
         return resp.json()
 
 
-    def chat_random(self, token, chat_id, ai_question):
-        data = json.dumps({
+    def chat_random(self, token, chat_id, ai_question, user_file=None):
+        if user_file:
+            if isinstance(user_file, str):
+                file_path = get_project_file_name(chat_id, user_file, folder_name="user_files")
+                user_file = read_file_object(file_path)
+            data = {
             "question": f"{ai_question}",
             "return_object": "random",
             "chat_id": f"{chat_id}"
-        })
-        resp = send_post_request(token, CYODA_AI_URL, "%s/chat" % API_V_RANDOM_, data)
-        return resp.json()
+            }
+            resp = send_post_request(token, CYODA_AI_URL, "%s/chat-file" % API_V_RANDOM_, data, user_file=user_file)
+            return resp.json()
+        else:
+            data = json.dumps({
+            "question": f"{ai_question}",
+            "return_object": "random",
+            "chat_id": f"{chat_id}"
+            })
+            resp = send_post_request(token, CYODA_AI_URL, "%s/chat" % API_V_RANDOM_, data)
+            return resp.json()
