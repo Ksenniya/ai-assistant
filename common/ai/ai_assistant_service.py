@@ -10,6 +10,15 @@ API_V_WORKFLOWS_ = "api/v1/workflows"
 API_V_RANDOM_ = "api/v1/random"
 logger = logging.getLogger(__name__)
 
+#todo remove later
+dataset = {}
+def add_to_dataset(chat_id, ai_question, ai_endpoint, answer):
+    if chat_id not in dataset:
+        dataset[chat_id] = []  # Create a new chat session if it doesn't exist
+        # Add the question and answer pair to the list of the corresponding chat session
+    dataset[chat_id].append({"ai_endpoint": ai_endpoint, "question": ai_question, "answer": answer})
+
+
 class AiAssistantService:
     def __init__(self):
         pass
@@ -50,16 +59,16 @@ class AiAssistantService:
             return {"entity": "some random text"}
         if ai_endpoint == CYODA_AI_API:
             resp = await self.chat_cyoda(token=token, chat_id=chat_id, ai_question=ai_question)
-            return resp
-        if ai_endpoint == WORKFLOW_AI_API:
+        elif ai_endpoint == WORKFLOW_AI_API:
             resp = await self.chat_workflow(token=token, chat_id=chat_id, ai_question=ai_question)
-            return resp
-        if ai_endpoint == CONNECTION_AI_API:
+        elif ai_endpoint == CONNECTION_AI_API:
             resp = await self.chat_connection(token=token, chat_id=chat_id, ai_question=ai_question)
-            return resp
-        if ai_endpoint == RANDOM_AI_API:
+        elif ai_endpoint == RANDOM_AI_API:
             resp = await self.chat_random(token=token, chat_id=chat_id, ai_question=ai_question)
-            return resp
+        else:
+            return {"error": "Invalid endpoint"}
+        add_to_dataset(ai_endpoint=ai_endpoint, ai_question=ai_question, chat_id=chat_id, answer=resp)
+        return resp
 
     async def chat_cyoda(self, token, chat_id, ai_question):
         if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:

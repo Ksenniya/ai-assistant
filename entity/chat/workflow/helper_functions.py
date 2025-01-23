@@ -57,8 +57,8 @@ async def _get_valid_result(_data, schema, token, ai_endpoint, chat_id):
     return result
 
 
-async def run_chat(chat, _event, token, ai_endpoint, chat_id):
-    event_prompt, prompt = build_prompt(_event, chat)
+async def run_chat(chat, _event, token, ai_endpoint, chat_id, additional_prompt=None):
+    event_prompt, prompt = build_prompt(_event, chat) if not additional_prompt else ({"prompt": additional_prompt}, additional_prompt)
     result = await _get_chat_response(prompt=prompt, token=token, ai_endpoint=ai_endpoint, chat_id=chat_id)
     if event_prompt.get("schema"):
         try:

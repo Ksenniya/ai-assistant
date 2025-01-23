@@ -2,6 +2,9 @@ from common.config.config import MAX_ITERATION, RANDOM_AI_API
 
 DESIGN_PLEASE_WAIT = "⚙️ Generating your Cyoda design... please wait a moment! ⏳"
 APPROVE_WARNING = "Sorry, you cannot skip this question. If you're unsure about anything, please refer to the example answers for guidance. If you need further help, just let us know! 😊 Apologies for the inconvenience!🙌"
+PLEASE_RESUBMIT = "⚠️ Please resubmit your answer. ⚠️"
+
+DESIGN_IN_PROGRESS_WARNING = "Sorry, you cannot submit answer right now. We are working on Cyoda design. Could you please wait  a little"
 BRANCH_READY_NOTIFICATION = """🎉 **Your branch is ready!** Please update the project and check it out when you get a chance. 😊
 
 To get started:
@@ -259,13 +262,21 @@ For any direct inquiries, reach out to **ksenia.lukonina@cyoda.com**. We’re he
                                ]
                            }
                        },
+"additional_prompts": [
+                           {
+                               "text": """
+Using updated Cyoda design json, update the PRD document. Return the updated PRD document only.
+                             """,
+                               "file_name": "entity/app_design_prd.md"
+                           }
+                       ],
                        "answer": None,
                        "function": None,
                        "file_name": "entity/app_design.json",
                        "flow_step": APPLICATION_DESIGN_STR,
                        "iteration": 0,
                        "additional_questions": [
-                           {"question": "Would you like to improve anything in the design?", "approve": True}],
+                           {"question": "Would you like to improve anything in the design?  Give me thumbs up if you are ready to proceed 👍", "approve": True}],
                        "max_iteration": MAX_ITERATION},
                       # Would you like to change anything in the design?
                       {
@@ -283,66 +294,7 @@ For any direct inquiries, reach out to **ksenia.lukonina@cyoda.com**. We’re he
                           "file_name": "entity/app_design.json",
                           "flow_step": APPLICATION_DESIGN_STR,
                           "max_iteration": 0},
-                      # Generate Cyoda design, based on the requirement
-                      {"question": None,
-                       "prompt": {
-                           "text": "Using Cyoda design json, return human readable prd document that explains the Cyoda design json and explains how it is aligned with the requirement. You not only need to translate the json, but explain what is Cyoda entity data base, how event driven approach works for the specific requirement - why we do what we do, as the user will be completely new to Cyoda. Also include markdown diagrams, e.g for entities and sequence, actors etc, you can use mermaid dialect or whatever applicable",
-                       },
-                       "answer": None,
-                       "file_name": "entity/app_design_prd.md",
-                       "flow_step": APPLICATION_DESIGN_STR,
-                       "function": None,
-                       "iteration": 0,
-                       "max_iteration": 0},
-                      {
-                          "notification": """
-**While we work on your app design, let me quickly introduce Cyoda...** 😄
 
-**On Entity Workflows and How an EDBMS Leads to a Horizontally Scalable Event-Driven Architecture (EDA)**
-
-In a previous article, we introduced the Entity Database (EDBMS). Now, let’s dive into how an EDBMS leads to a simpler, horizontally scalable event-driven architecture (EDA), where applications become “thin clients” with fewer moving parts and a smaller codebase. 😎
-
-### Entity Workflow
-An Entity Workflow includes:
-1. **States**: The logical status of an entity (e.g., LOCKED, UNLOCKED).
-2. **Transitions**: Pathways allowing an entity to change from one state to another.
-3. **Predicates**: Conditions or rules that decide if a transition can happen.
-4. **Actions**: Events triggered by transitions.
-
-### Example: Careful Turnstile
-A turnstile can have states like LOCKED and UNLOCKED. When a coin is added, it transitions to UNLOCKED. We can add actions to lock or unlock the turnstile based on the state. 🔒
-
-#### Automating Transitions
-We can automate transitions based on safety checks, like ensuring it's safe to pass before unlocking the turnstile. This makes the workflow smarter and more automated. 🤖
-
-#### Adding More Features
-You can further enhance workflows by adding states like OFFLINE or controlling status lights. By adding predicates and actions, we can easily update the turnstile’s behavior as needed. 🚦
-
-### Workflow Diagram
-Here’s a textual depiction of the turnstile workflow:
-
-None --> New --> LOCKED --> Coin --> UNLOCKED --> Coin --> LOCKED
-                       
-- The flow starts at **None** when the turnstile is first created.
-- Then, it transitions to **LOCKED** via the **New** transition.
-- From **LOCKED**, inserting a **Coin** moves it to **UNLOCKED**.
-- From **UNLOCKED**, pressing the **Push** button brings it back to **LOCKED**.
-- Inserting a **Coin** again when it's **LOCKED** keeps it in a loop between **LOCKED** and **UNLOCKED**.
-
-### Why This Works
-Entity workflows are intuitive and iterative. They break complex tasks into smaller, manageable actions and rules that can be reused, making systems more adaptable to change and easier to maintain. 🔄
-
-For more on Entity Workflows and EDA, check out this article by [Paul Schleger](https://medium.com/@paul_42036/entity-workflows-for-event-driven-architectures-4d491cf898a5).
-""",
-                          "prompt": {},
-                          "info": True,
-                          "answer": None,
-                          "function": None,
-                          "iteration": 0,
-                          "file_name": "entity/app_design.json",
-                          "flow_step": APPLICATION_DESIGN_STR,
-                          "max_iteration": 0
-                      },
                       {"notification": DESIGN_PLEASE_WAIT,
                        "prompt": {},
                        "answer": None,
@@ -352,7 +304,7 @@ For more on Entity Workflows and EDA, check out this article by [Paul Schleger](
                        },
                       {"question": None,
                        "prompt": {
-                           "text": "Generate Cyoda design, based on the requirement. Do not forget to explicitly add the entities that you add in the workflow processors, and use only lowercase underscore for namings. Add workflow only where necessary. If the entity is saved in the workflow of another entity (e.g. JOB) then its source will be ENTITY_EVENT. If you have a JOB entity in the design - usually just one JOB entity is enough. If you fail schema validation - check this examle {\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"title\":\"Cyodadesign\",\"type\":\"object\",\"entities\":[{\"entity_name\":\"data_collection_job\",\"entity_type\":\"JOB\",\"entity_source\":\"SCHEDULED\",\"depends_on_entity\":\"None\",\"entity_workflow\":{\"name\":\"data_collection_workflow\",\"class_name\":\"com.cyoda.tdb.model.treenode.TreeNodeEntity\",\"transitions\":[{\"name\":\"collect_data_from_source_a\",\"description\":\"CollectdatafromsourceA.\",\"start_state\":\"None\",\"start_state_description\":\"Initialstatebeforedatacollection.\",\"end_state\":\"data_collected_a\",\"end_state_description\":\"DatafromsourceAhasbeensuccessfullycollected.\",\"process\":{\"name\":\"collect_data_a_process\",\"description\":\"ProcesstocollectrawdatafromsourceA.\",\"adds_new_entites\":\"raw_data_a_entity\"}}]}},{\"entity_name\":\"raw_data_a_entity\",\"entity_type\":\"EXTERNAL_SOURCES_PULL_BASED_RAW_DATA\",\"entity_source\":\"ENTITY_EVENT\",\"depends_on_entity\":\"data_collection_job\",\"entity_workflow\":{}}]}",
+                           "text": "Generate Cyoda design, based on the requirement. Do not forget to explicitly add the entities that you add in the workflow processors, and use only lowercase underscore for namings. Add workflow only where necessary. If the entity is saved in the workflow of another entity (e.g. JOB) then its source will be ENTITY_EVENT. If you have a JOB entity in the design - usually just one JOB entity is enough.",
                            "schema": {
                                "$schema": "http://json-schema.org/draft-07/schema#",
                                "title": "Cyoda design",
@@ -365,6 +317,49 @@ For more on Entity Workflows and EDA, check out this article by [Paul Schleger](
                                ]
                            }
                        },
+                       "additional_prompts": [
+                           {
+                               "text": """
+Using Cyoda design json, return human readable prd document that explains the Cyoda design json and explains how it is aligned with the requirement.
+Also include markdown mermaid diagrams: sequenceDiagram, flowchart, classDiagram, stateDiagram, entities, graph, erDiagram, journey, mindmap, block-beta.
+ Examples:
+ ***For each not empty (has transitions) entity workflow let's provide a flowchart***
+ ```mermaid
+ flowchart TD
+    A[Start State] -->|transition: transition_name_1, processor: processor_name_1, processor attributes: sync_process=true/false, new_transaction_for_async=true/false, none_transactional_for_async=true/false| B[State 1]
+    B -->|transition: transition_name_2, processor: processor_name_2, processor attributes: sync_process=true/false, new_transaction_for_async=true/false, none_transactional_for_async=true/false| C[State 2]
+    C --> D[End State]
+
+    %% Decision point for criteria
+    B -->|criteria: criteria_name, entityModelName equals some_value| D1{Decision: Check Criteria}
+    D1 -->|true| C
+    D1 -->|false| E[Error: Criteria not met]
+
+    class A,B,C,D,D1 automated;
+    ```
+    ```mermaid
+graph TD;
+    A[data_ingestion_job] -->|triggers| B[raw_data_entity];
+    B -->|transforms into| C[transformed_data_entity];
+    C -->|enriches into| D[enriched_data_entity];
+    D -->|aggregates into| E[aggregated_data_entity];
+    E -->|generates| F[report_entity];
+```
+```mermaid
+sequenceDiagram
+    participant User
+    participant Scheduler
+    participant Data Ingestion Job
+...
+
+    User->>Scheduler: Schedule data ingestion job
+    Scheduler->>Data Ingestion Job: Trigger scheduled data ingestion
+...
+``` 
+                             """,
+                               "file_name": "entity/app_design_prd.md"
+                           }
+                       ],
                        "answer": None,
                        "file_name": "entity/app_design.json",
                        "flow_step": APPLICATION_DESIGN_STR,
@@ -542,13 +537,13 @@ data_ingestion_stack = lambda entities: [
         "function": {"name": "generate_data_ingestion_code",
                      "prompts": {
                          "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA": {
-                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and save it to the entity {entity_name}. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. **Tests should be in the same file with the code**",
+                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and return processed (mapped) data without saving to repository. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Also generate tests so that the user can try out the functions right away in isolated environment. **Tests should be in the same file with the code**",
                          },
                          "WEB_SCRAPING_PULL_BASED_RAW_DATA": {
-                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and save it to the entity {entity_name}. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. **Tests should be in the same file with the code**",
+                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and return processed (mapped) data without saving to repository. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Also generate tests so that the user can try out the functions right away in isolated environment. **Tests should be in the same file with the code**",
                          },
                          "TRANSACTIONAL_PULL_BASED_RAW_DATA": {
-                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and save it to the entity {entity_name}. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. **Tests should be in the same file with the code**",
+                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and return processed (mapped) data without saving to repository. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Also generate tests so that the user can try out the functions right away in isolated environment. **Tests should be in the same file with the code**",
                          }
                      }},
         "context": {
@@ -803,6 +798,55 @@ workflow_stack = lambda entity: [
         "iteration": 0,
         "flow_step": WORKFLOW_DESIGN_STR,
         "max_iteration": 0},
+    {
+        "notification": """
+**While we work on your app design, let me quickly introduce Cyoda...** 😄
+
+**On Entity Workflows and How an EDBMS Leads to a Horizontally Scalable Event-Driven Architecture (EDA)**
+
+In a previous article, we introduced the Entity Database (EDBMS). Now, let’s dive into how an EDBMS leads to a simpler, horizontally scalable event-driven architecture (EDA), where applications become “thin clients” with fewer moving parts and a smaller codebase. 😎
+
+### Entity Workflow
+An Entity Workflow includes:
+1. **States**: The logical status of an entity (e.g., LOCKED, UNLOCKED).
+2. **Transitions**: Pathways allowing an entity to change from one state to another.
+3. **Predicates**: Conditions or rules that decide if a transition can happen.
+4. **Actions**: Events triggered by transitions.
+
+### Example: Careful Turnstile
+A turnstile can have states like LOCKED and UNLOCKED. When a coin is added, it transitions to UNLOCKED. We can add actions to lock or unlock the turnstile based on the state. 🔒
+
+#### Automating Transitions
+We can automate transitions based on safety checks, like ensuring it's safe to pass before unlocking the turnstile. This makes the workflow smarter and more automated. 🤖
+
+#### Adding More Features
+You can further enhance workflows by adding states like OFFLINE or controlling status lights. By adding predicates and actions, we can easily update the turnstile’s behavior as needed. 🚦
+
+### Workflow Diagram
+Here’s a textual depiction of the turnstile workflow:
+
+None --> New --> LOCKED --> Coin --> UNLOCKED --> Coin --> LOCKED
+
+- The flow starts at **None** when the turnstile is first created.
+- Then, it transitions to **LOCKED** via the **New** transition.
+- From **LOCKED**, inserting a **Coin** moves it to **UNLOCKED**.
+- From **UNLOCKED**, pressing the **Push** button brings it back to **LOCKED**.
+- Inserting a **Coin** again when it's **LOCKED** keeps it in a loop between **LOCKED** and **UNLOCKED**.
+
+### Why This Works
+Entity workflows are intuitive and iterative. They break complex tasks into smaller, manageable actions and rules that can be reused, making systems more adaptable to change and easier to maintain. 🔄
+
+For more on Entity Workflows and EDA, check out this article by [Paul Schleger](https://medium.com/@paul_42036/entity-workflows-for-event-driven-architectures-4d491cf898a5).
+""",
+        "prompt": {},
+        "info": True,
+        "answer": None,
+        "function": None,
+        "iteration": 0,
+        "file_name": "entity/app_design.json",
+        "flow_step": APPLICATION_DESIGN_STR,
+        "max_iteration": 0
+    },
     {
         "notification": f"""Proceeding to {WORKFLOW_DESIGN_STR}
         

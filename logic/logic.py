@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import Dict, Any
 
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 # def question(event: Dict[str, Any], stack) -> None:
 #     """Enqueue a question event."""
 #     question_queue.put(event)
-
+#todo refactor
 async def process_answer(token, _event: Dict[str, Any], chat) -> None:
     """
     Process an answer event by interacting with the chat service and managing the event stack.
@@ -46,6 +47,19 @@ async def process_answer(token, _event: Dict[str, Any], chat) -> None:
         function_event = get_event_template(event=_event, notification='', answer='', prompt={}, question='')
         await dispatch_function(token, function_event, chat)
     await save_result_to_file(chat=chat, _event=_event, _data=result)
+    if _event.get("additional_prompts"):
+
+        for additional_prompt in _event.get("additional_prompts", []):
+            additional_result = await run_chat(chat=chat, _event=_event, additional_prompt = additional_prompt.get("text", ""), token=cyoda_token,
+                                              ai_endpoint=additional_prompt.get("api", CYODA_AI_API),
+                                              chat_id=chat["chat_id"])
+            additional_event = copy.deepcopy(additional_prompt)
+            if additional_prompt.get("file_name"):
+                additional_event["file_name"] = additional_prompt.get("file_name")
+                await save_result_to_file(chat=chat, _event=additional_event, _data=additional_result)
+            additional_prompt_event = get_event_template(question='', event=additional_event, notification=additional_result, answer='', prompt={})
+            stack.append(additional_prompt_event)
+
 
 
 def repeat_iteration(_event, result):

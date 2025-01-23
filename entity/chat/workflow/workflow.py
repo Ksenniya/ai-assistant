@@ -4,6 +4,7 @@ import asyncio
 import os
 import logging
 
+from common.ai.ai_assistant_service import dataset
 from common.config.config import MOCK_AI, CYODA_AI_API, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO, \
     REPOSITORY_URL, WORKFLOW_AI_API
 from common.config.conts import SCHEDULED_STACK, API_REQUEST_STACK, \
@@ -312,9 +313,12 @@ async def generate_entities_template(token, _event, chat):
 
 
 async def finish_flow(token, _event, chat):
-    await _save_file(chat_id=chat["chat_id"], _data=json.dumps(chat), item=_event["file_name"])
+    chat_id = chat["chat_id"]
+    await _save_file(chat_id=chat_id, _data=json.dumps(chat), item=_event["file_name"])
     await _send_notification(chat=chat, event=_event, notification_text=_event.get("notification_text"))
-
+    #todo remove later
+    await _save_file(chat_id=chat_id, _data=json.dumps(dataset.get(chat_id)), item=f"entity/dataset_{chat_id}.json")
+    del dataset[chat_id]
 
 def main():
     if __name__ == "__main__":
