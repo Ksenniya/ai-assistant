@@ -538,8 +538,8 @@ async def _get_resources(entity, files_notifications, target_dir):
     # Return the results in the desired order
     return (
         file_names["code"],  # Code file name
-        file_contents[0],     # Doc file content
-        file_contents[1],     # Entity file content
+        file_contents[1],     # Doc file content
+        file_contents[2],     # Entity file content
         entity_name           # Entity name
     )
 

@@ -534,6 +534,9 @@ async def rollback_dialogue_script(technical_id, auth_header, chat, question):
     if "finished_flow" not in chat["chat_flow"]:
         chat["chat_flow"]["finished_flow"] = []
     finished_flow = chat["chat_flow"]["finished_flow"]
+    if not finished_flow[-1].get("question"):
+        return jsonify({
+            "message": DESIGN_IN_PROGRESS_WARNING}), 400
     event = finished_flow.pop()
     if question:
         while finished_flow and (not event.get("question") or event.get("question") != question):
@@ -607,7 +610,7 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat, user_fi
     if user_file:
         file_name = user_file.filename
         folder_name = "user_files"
-        await _save_file(chat_id=chat["chat_id"], data=user_file, item=file_name, folder_name=folder_name)
+        await _save_file(chat_id=chat["chat_id"], _data=user_file, item=file_name, folder_name=folder_name)
         next_event["user_file"] = file_name
         next_event["user_file_processed"] = False
     await entity_service.update_item(token=auth_header,

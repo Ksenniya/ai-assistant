@@ -490,7 +490,6 @@ async def send_post_request(token: str, api_url: str, path: str, data=None, json
         "Authorization": f"{token}",
     }
     try:
-        response = await send_request(headers, url, 'POST', data, json)
         if user_file:
             # Remove Content-Type from headers as it will be set automatically in multipart
             files = {'file': user_file}

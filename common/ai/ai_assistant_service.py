@@ -89,7 +89,6 @@ class AiAssistantService:
             return resp.get('message')
 
 
-
     async def chat_workflow(self, token, chat_id, ai_question):
         if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
             return {"error": "Answer size exceeds 1MB limit"}
