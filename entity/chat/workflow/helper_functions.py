@@ -59,7 +59,19 @@ async def _get_valid_result(_data, schema, token, ai_endpoint, chat_id):
 
 async def run_chat(chat, _event, token, ai_endpoint, chat_id, additional_prompt=None):
     event_prompt, prompt = build_prompt(_event, chat) if not additional_prompt else ({"prompt": additional_prompt}, additional_prompt)
-    result = await _get_chat_response(prompt=prompt, token=token, ai_endpoint=ai_endpoint, chat_id=chat_id)
+    user_file_name = None
+    if _event.get("user_file") and _event.get("user_file_processed") is False:
+        user_file_name = _event.get("user_file")
+        _event["user_file_processed"] = True
+
+    result = await _get_chat_response(
+        prompt=prompt,
+        token=token,
+        ai_endpoint=ai_endpoint,
+        chat_id=chat_id,
+        user_file=user_file_name,
+    )
+
     if event_prompt.get("schema"):
         try:
             result = await _get_valid_result(_data=result,
@@ -101,11 +113,11 @@ def _enrich_prompt_with_context(_event, chat, event_prompt):
     return prompt_text
 
 
-async def _get_chat_response(prompt, token, ai_endpoint, chat_id):
+async def _get_chat_response(prompt, token, ai_endpoint, chat_id, user_file=None):
     """Get chat response either from the AI service or mock entity."""
     if MOCK_AI=="true":
         return _mock_ai(prompt)
-    resp = await ai_service.ai_chat(token=token, ai_endpoint=ai_endpoint, chat_id=chat_id, ai_question=prompt)
+    resp = await ai_service.ai_chat(token=token, ai_endpoint=ai_endpoint, chat_id=chat_id, ai_question=prompt, user_file=user_file)
     return resp
 
 
@@ -139,25 +151,37 @@ def get_event_template(question, notification, answer, prompt, event):
     return final_json
 
 
-async def _save_file(chat_id, _data, item) -> str:
+async def _save_file(chat_id, _data, item, folder_name=None) -> str:
     """
-    Save the workflow to a file inside a specific directory.
+    Save a file (text or binary) inside a specific directory.
+    Handles FileStorage objects directly.
     """
-    target_dir = os.path.join(f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}")
+    target_dir = os.path.join(f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}", folder_name or "")
     file_path = os.path.join(target_dir, item)
     logger.info(f"Saving to {file_path}")
 
     # Use asyncio.to_thread for non-blocking creation of directories
     await asyncio.to_thread(os.makedirs, os.path.dirname(file_path), exist_ok=True)
 
-    # Process the data and get the output to save
-    output_data = _process_data(_data) if item.endswith('.json') or item.endswith('.py') else _data
+    # Process the _data and get the output to save
+    try:
+        # Handle FileStorage object directly
+        if hasattr(_data, "read"):  # Check if `_data` is a file-like object
+            _data.seek(0)  # Ensure we're at the beginning of the file
+            write_mode = 'wb'  # Assume binary mode for file-like objects
+            async with aiofiles.open(file_path, write_mode) as output:
+                await output.write(await _data.read())
+        else:
+            # Process and save as text or binary
+            output_data = _process_data(_data)
+            write_mode = 'w' if isinstance(output_data, str) else 'wb'
+            async with aiofiles.open(file_path, write_mode) as output:
+                await output.write(output_data)
+    except Exception as e:
+        logger.error(f"Failed to save file {file_path}: {e}")
+        raise
 
-    # Write the processed output data to the file asynchronously
-    async with aiofiles.open(file_path, 'w') as output:
-        await output.write(output_data)
-
-    logger.info(f"saved to {file_path}")
+    logger.info(f"Saved to {file_path}")
 
     # Define the path for __init__.py in the target directory
     init_file_target_dir = os.path.dirname(file_path)
@@ -213,6 +237,9 @@ def hello_world():
 
 # Function to process the data
 def _process_data(_data):
+    # If _data is binary, then return as is
+    if isinstance(_data, (bytes, bytearray)):
+        return _data
     # Try to parse the string if it's a string
     if isinstance(_data, str):
         try:

@@ -2,7 +2,6 @@ import asyncio
 import copy
 import functools
 import logging
-import queue
 
 import jwt
 
@@ -11,9 +10,9 @@ from quart_cors import cors
 from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX, API_URL
 from common.exception.exceptions import ChatNotFoundException, UnauthorizedAccessException
 from common.util.utils import clean_formatting, send_get_request, read_file, \
-    get_project_file_name, format_json_if_needed
+    get_project_file_name, format_json_if_needed, current_timestamp
 from entity.chat.data.data import app_building_stack, APP_BUILDER_FLOW, DESIGN_PLEASE_WAIT, \
-    APPROVE_WARNING, DESIGN_IN_PROGRESS_WARNING, OPERATION_FAILED_WARNING
+    APPROVE_WARNING, DESIGN_IN_PROGRESS_WARNING
 from entity.chat.workflow.helper_functions import git_pull, _save_file
 from logic.logic import process_dialogue_script
 from logic.init import ai_service, cyoda_token, entity_service, chat_lock
@@ -130,104 +129,6 @@ async def index():
     return await send_from_directory(app.static_folder, 'index.html')
 
 
-def _get_user_id(auth_header):
-    try:
-        if not auth_header:
-            return jsonify({"error": "Invalid token"}), 401
-        token = auth_header.split(" ")[1]
-        # Decode the JWT without verifying the signature
-        # The `verify=False` option ensures that we do not verify the signature
-        # This is useful for extracting the payload only.
-        decoded = jwt.decode(token, options={"verify_signature": False})
-        user_id = decoded.get("userId")
-        return user_id
-    except jwt.InvalidTokenError:
-        return None
-
-
-def _get_chat_for_user(auth_header, technical_id):
-    user_id = _get_user_id(auth_header)
-    if not user_id:
-        raise UnauthorizedAccessException()
-
-    chat = entity_service.get_item(token=auth_header,
-                                   entity_model="chat",
-                                   entity_version=ENTITY_VERSION,
-                                   technical_id=technical_id)
-
-    if not chat:
-        raise ChatNotFoundException()
-
-    if chat["user_id"] != user_id:
-        raise UnauthorizedAccessException()
-
-    return chat
-
-
-def _submit_question_helper(chat, question):
-    # Check if a file has been uploaded
-
-    if not question:
-        return jsonify({"message": "Invalid entity"}), 400
-    if MOCK_AI == "true":
-        return jsonify({"message": "mock ai answer"}), 200
-    result = ai_service.ai_chat(token=cyoda_token, chat_id=chat["chat_id"], ai_endpoint=CYODA_AI_API,
-                                ai_question=question)
-    return jsonify({"message": result}), 200
-
-
-def rollback_dialogue_script(technical_id, auth_header, chat, question):
-    current_flow = chat["chat_flow"]["current_flow"]
-    finished_flow = chat["chat_flow"]["finished_flow"]
-    event = finished_flow.pop()
-    if question:
-        while event and event.get("question") and event.get("question") != question:
-            current_flow.append(event)
-            event = finished_flow.pop()
-    else:
-        while event and (not event.get("function") or event.get("function").get("name") != "refresh_context"):
-            current_flow.append(event)
-            event = finished_flow.pop()
-    current_flow.append(event)
-    entity_service.update_item(token=auth_header,
-                               entity_model="chat",
-                               entity_version=ENTITY_VERSION,
-                               technical_id=technical_id,
-                               entity=chat,
-                               meta={})
-    asyncio.create_task(process_dialogue_script(auth_header, technical_id))
-    return jsonify({"message": "Answer received"}), 200
-
-
-async def _submit_answer_helper(technical_id, answer, auth_header, chat):
-    question_queue = chat["questions_queue"]["new_questions"]
-    if not question_queue.empty():
-        return jsonify({
-                           "message": "Could you please have a look at a couple of more questions before submitting your answer?"}), 400
-    if not answer:
-        return jsonify({"message": "Invalid entity"}), 400
-    stack = chat["chat_flow"]["current_flow"]
-    if not stack:
-        return jsonify({"message": "Finished"}), 200
-    next_event = stack[-1]
-    if answer == PUSH_NOTIFICATION:
-        next_event["answer"] = clean_formatting(
-            read_file(get_project_file_name(chat['chat_id'], next_event["file_name"])))
-    elif answer == APPROVE:
-        next_event["max_iteration"] = -1
-    else:
-        next_event["answer"] = clean_formatting(answer)
-    entity_service.update_item(token=auth_header,
-                               entity_model="chat",
-                               entity_version=ENTITY_VERSION,
-                               technical_id=technical_id,
-                               entity=chat,
-                               meta={})
-    asyncio.create_task(process_dialogue_script(auth_header, technical_id))
-    return jsonify({"message": "Answer received"}), 200
-    #await process_dialogue_script(auth_header, technical_id)
-    #return await poll_questions(auth_header, chat, question_queue, technical_id)
-
 @app.route(API_PREFIX + '/chat-flow', methods=['GET'])
 @auth_required
 async def get_chat_flow():
@@ -262,8 +163,7 @@ async def get_chats():
         'chat_id': chat['chat_id'],
         'name': chat['name'],
         'description': chat['description'],
-        'date': chat['date'],
-        'last_modified': chat['last_modified']
+        'date': chat['date']
     } for chat in chats]
 
     return jsonify({"chats": chats_view})
@@ -285,7 +185,6 @@ async def get_chat(technical_id):
         'name': chat['name'],
         'description': chat['description'],
         'date': chat['date'],
-        'last_modified': chat['last_modified'],
         'dialogue': dialogue
     }
     return jsonify({"chat_body": chats_view})
@@ -319,24 +218,6 @@ async def add_chat():
         return jsonify({"message": "Invalid chat name"}), 400
     # Here, handle the answer (e.g., store it, process it, etc.)
     # todo use tech id as chat id
-    new_questions_stack = [{
-                          "notification": "Please, checkout your dedicated branch. Only you and me will be contributing to it ^-^",
-                          "prompt": {},
-                          "answer": None,
-                          "function": None,
-                          "iteration": 0,
-                          "file_name": "instruction.txt",
-                          "max_iteration": 0
-                      },
-                      {
-                          "notification": "Your application will be available in Cyoda Platform github space https://github.com/Cyoda-platform/quart-client-template",
-                          "prompt": {},
-                          "answer": None,
-                          "function": None,
-                          "iteration": 0,
-                          "file_name": "instruction.txt",
-                          "max_iteration": 0
-                      },
 
     # new_questions = []
     # questions_stack = copy.deepcopy(new_questions_stack)
@@ -344,8 +225,7 @@ async def add_chat():
     #     new_questions.append(questions_stack.pop())
     chat = {
         "user_id": user_id,
-        "date": "2023-11-07T12:00:00Z",
-        "last_modified": "2023-11-07T12:00:00Z",
+        "date": current_timestamp(),
         "questions_queue": {"new_questions": [], "asked_questions": []},
         "chat_flow": {"current_flow": copy.deepcopy(app_building_stack), "finished_flow": []},
         "name": name,
@@ -517,9 +397,9 @@ async def submit_question(technical_id):
     req_data = await request.form
     req_data = req_data.to_dict()
     question = req_data.get('question')
-    files = await request.files
-    files = files.get('file')
-    res = await _submit_question_helper(chat, question)
+    file = await request.files
+    user_file = file.get('file')
+    res = await _submit_question_helper(chat, question, user_file)
     return res
 
 
@@ -573,8 +453,8 @@ async def submit_answer(technical_id):
 
     # Check if a file has been uploaded
     file = await request.files
-    file = file.get('file')
-    return await _submit_answer_helper(technical_id, answer, auth_header, chat)
+    user_file = file.get('file')
+    return await _submit_answer_helper(technical_id, answer, auth_header, chat, user_file)
 
 
 def _get_user_id(auth_header):
@@ -611,15 +491,41 @@ async def _get_chat_for_user(auth_header, technical_id):
     return chat
 
 
-async def _submit_question_helper(chat, question):
+async def _submit_question_helper(chat, question, user_file=None):
     # Check if a file has been uploaded
 
+    # Validate input
     if not question:
         return jsonify({"message": "Invalid entity"}), 400
+
+    # Return mock response if AI mock mode is enabled
     if MOCK_AI == "true":
         return jsonify({"message": "mock ai answer"}), 200
-    result = await ai_service.ai_chat(token=cyoda_token, chat_id=chat["chat_id"], ai_endpoint=CYODA_AI_API,
-                                      ai_question=question)
+
+    # Process file if provided
+    if user_file:
+        file_name = user_file.filename
+        folder_name = "user_files"
+        # Save the uploaded file asynchronously
+        await _save_file(chat_id=chat["chat_id"], _data=user_file, item=file_name, folder_name=folder_name)
+        # Call AI service with the file
+        result = await ai_service.ai_chat(
+            token=cyoda_token,
+            chat_id=chat["chat_id"],
+            ai_endpoint=CYODA_AI_API,
+            ai_question=question,
+            user_file=file_name
+        )
+    else:
+        # Call AI service without a file
+        result = await ai_service.ai_chat(
+            token=cyoda_token,
+            chat_id=chat["chat_id"],
+            ai_endpoint=CYODA_AI_API,
+            ai_question=question
+        )
+
+    # Return the result from the AI service
     return jsonify({"message": result}), 200
 
 
@@ -648,7 +554,7 @@ async def rollback_dialogue_script(technical_id, auth_header, chat, question):
     return jsonify({"message": "Answer received"}), 200
 
 
-async def _submit_answer_helper(technical_id, answer, auth_header, chat):
+async def _submit_answer_helper(technical_id, answer, auth_header, chat, user_file=None):
     if "questions_queue" not in chat:
         chat["questions_queue"] = {}
 
@@ -698,6 +604,12 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat):
         else:
             next_event["answer"] = clean_formatting(answer)
     question_queue.append(wait_notification)
+    if user_file:
+        file_name = user_file.filename
+        folder_name = "user_files"
+        await _save_file(chat_id=chat["chat_id"], data=user_file, item=file_name, folder_name=folder_name)
+        next_event["user_file"] = file_name
+        next_event["user_file_processed"] = False
     await entity_service.update_item(token=auth_header,
                                      entity_model="chat",
                                      entity_version=ENTITY_VERSION,

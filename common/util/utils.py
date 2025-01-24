@@ -2,6 +2,8 @@ import logging
 import queue
 import time
 import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import aiofiles
 from typing import Optional, Any
@@ -390,6 +392,14 @@ async def read_file(file_path: str):
         logger.error(f"Failed to read JSON file {file_path}: {e}")
         raise  # Re-raise the exception for further handling
 
+async def read_file_object(file_path: str):
+    """Asynchronously read and return a file object for the given file path."""
+    try:
+        async with aiofiles.open(file_path, 'rb') as file:
+            return file
+    except Exception as e:
+        logger.error(f"Failed to open file {file_path}: {e}")
+        raise
 
 async def read_json_file(file_path: str):
     try:
@@ -425,29 +435,54 @@ async def send_get_request(token: str, api_url: str, path: str) -> Optional[Any]
         raise
 
 
-async def send_request(headers, url, method, data, json):
+async def send_request(headers, url, method, data, json, files=None):
     async with aiohttp.ClientSession() as session:
-        if method == 'GET':
-            async with session.get(url, headers=headers) as response:
-                if response and (response.status == 200 or response.status == 404):
-                    data = await response.json()
-        elif method == 'POST':
-            async with session.post(url, headers=headers, data=data, json=json) as response:
-                if response:
-                    data = await response.json()
-        elif method == 'PUT':
-            async with session.put(url, headers=headers, data=data, json=json) as response:
-                if response:
-                    data = await response.json()
-        elif method == 'DELETE':
-            async with session.delete(url, headers=headers) as response:
-                if response:
-                    data = await response.json()
+        try:
+            if method == 'GET':
+                async with session.get(url, headers=headers) as response:
+                    if response and (response.status == 200 or response.status == 404):
+                        return await response.json()
+            elif method == 'POST':
+                if not files:
+                    async with session.post(url, headers=headers, data=data, json=json) as response:
+                        if response:
+                            data = await response.json()
+                            return data
+                form_data = aiohttp.FormData()
 
-    return data
+                # Add regular data (non-file) to form data
+                if data:
+                    for key, value in data.items():
+                        form_data.add_field(key, value)
 
+                # Add JSON data (if any) to form data
+                if json:
+                    form_data.add_field('json', str(json))  # Assuming JSON is a dictionary
 
-async def send_post_request(token: str, api_url: str, path: str, data=None, json=None) -> Optional[Any]:
+                # Add files (if any) to form data
+                if files:
+                    for filename, file_data in files.items():
+                        form_data.add_field('file', file_data, filename=filename,
+                                            content_type='application/octet-stream')
+
+                # Send the POST request with the form data (which includes files, if provided)
+                async with session.post(url, headers=headers, data=form_data) as response:
+                    if response:
+                        return await response.json()
+            elif method == 'PUT':
+                async with session.put(url, headers=headers, data=data, json=json) as response:
+                    if response:
+                        return await response.json()
+            elif method == 'DELETE':
+                async with session.delete(url, headers=headers) as response:
+                    if response:
+                        return await response.json()
+
+        except Exception as e:
+            print(f"Error occurred during {method} request: {e}")
+            return None
+
+async def send_post_request(token: str, api_url: str, path: str, data=None, json=None, user_file=None) -> Optional[Any]:
     url = f"{api_url}/{path}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
@@ -456,6 +491,15 @@ async def send_post_request(token: str, api_url: str, path: str, data=None, json
     }
     try:
         response = await send_request(headers, url, 'POST', data, json)
+        if user_file:
+            # Remove Content-Type from headers as it will be set automatically in multipart
+            files = {'file': user_file}
+            response = await send_request(headers=headers, url=url, method='POST', data=data, json=json, files=files)
+        else:
+            # Regular JSON request
+            headers["Content-Type"] = "application/json"
+            response = await send_request(headers=headers, url=url, method='POST', data=data, json=json)
+
         return response
     except Exception as err:
         logger.error(f"Error during POST request to {url}: {err}")
@@ -534,8 +578,17 @@ def clean_formatting(text):
 #     return text
 
 
-def get_project_file_name(chat_id, file_name):
-    return f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}/{file_name}"
+def get_project_file_name(chat_id, file_name, folder_name=None):
+    if folder_name:
+        return f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}/{folder_name}/{file_name}"
+    else:
+        return f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}/{file_name}"
+
+
+def current_timestamp():
+    now = datetime.now(ZoneInfo("UTC"))
+    return now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + now.strftime("%z")[:3] + ":" + now.strftime("%z")[3:]
+
 
 
 def custom_serializer(obj):
