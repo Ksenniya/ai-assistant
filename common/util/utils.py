@@ -1,4 +1,5 @@
 import logging
+import os
 import queue
 import time
 import re
@@ -14,7 +15,7 @@ import aiohttp
 import jsonschema
 from jsonschema import validate
 
-from common.config.config import PROJECT_DIR, REPOSITORY_NAME
+from common.config.config import PROJECT_DIR, REPOSITORY_NAME, MAX_FILE_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -392,9 +393,18 @@ async def read_file(file_path: str):
         logger.error(f"Failed to read JSON file {file_path}: {e}")
         raise  # Re-raise the exception for further handling
 
+
 async def read_file_object(file_path: str):
-    """Asynchronously read and return a file object for the given file path."""
+    """Asynchronously read and return a file object for the given file path with a file size limit check."""
     try:
+        # First, check the file size before opening it
+        #todo blocking!!!
+        file_size = os.path.getsize(file_path)
+
+        if file_size > MAX_FILE_SIZE:
+            raise ValueError(f"File size exceeds the {MAX_FILE_SIZE} byte limit")
+
+        # Now open the file asynchronously if the size is within limits
         async with aiofiles.open(file_path, 'rb') as file:
             return file
     except Exception as e:
@@ -479,24 +489,26 @@ async def send_request(headers, url, method, data, json, files=None):
                         return await response.json()
 
         except Exception as e:
-            print(f"Error occurred during {method} request: {e}")
-            return None
+            logger.exception(e)
+            raise
 
 async def send_post_request(token: str, api_url: str, path: str, data=None, json=None, user_file=None) -> Optional[Any]:
     url = f"{api_url}/{path}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"{token}",
-    }
     try:
         if user_file:
+            headers = {
+                "Authorization": f"{token}",
+            }
             # Remove Content-Type from headers as it will be set automatically in multipart
             files = {'file': user_file}
             response = await send_request(headers=headers, url=url, method='POST', data=data, json=json, files=files)
         else:
             # Regular JSON request
-            headers["Content-Type"] = "application/json"
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"{token}",
+            }
             response = await send_request(headers=headers, url=url, method='POST', data=data, json=json)
 
         return response

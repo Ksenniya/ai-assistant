@@ -1,10 +1,32 @@
+import copy
+
 from common.config.config import MAX_ITERATION, RANDOM_AI_API
+
+APP_BUILDING_STACK_KEY = "app_building_stack"
+
+DATA_INGESTION_STACK_KEY = "data_ingestion_stack"
+
+ENTITY_STACK_KEY = "entity_stack"
+
+WORKFLOW_STACK_KEY = "workflow_stack"
+
+PROCESSORS_STACK_KEY = "processors_stack"
+
+SCHEDULER_STACK_KEY = "scheduler_stack"
+
+FORM_SUBMISSION_STACK_KEY = "form_submission_stack"
+
+FILE_UPLOAD_STACK_KEY = "file_upload_stack"
+
+API_REQUEST_STACK_KEY = "api_request_stack"
 
 DESIGN_PLEASE_WAIT = "⚙️ Generating your Cyoda design... please wait a moment! ⏳"
 APPROVE_WARNING = "Sorry, you cannot skip this question. If you're unsure about anything, please refer to the example answers for guidance. If you need further help, just let us know! 😊 Apologies for the inconvenience!🙌"
 OPERATION_FAILED_WARNING = "⚠️ Sorry, this action is not available right now. Please try again or wait for new questions ⚠️"
-
-DESIGN_IN_PROGRESS_WARNING = "Sorry, you cannot submit answer right now. We are working on Cyoda design. Could you please wait  a little"
+OPERATION_NOT_SUPPORTED_WARNING = "⚠️ Sorry, this operation is not supported ⚠️"
+DESIGN_IN_PROGRESS_WARNING = "Sorry, you cannot submit answer right now. We are working on Cyoda design. Could you please wait a little"
+DESIGN_IN_PROGRESS_ROLLBACK_WARNING = "Sorry, you cannot rollback right now. We are working on Cyoda design. Could you please wait a little"
+ADDITIONAL_QUESTION_ROLLBACK_WARNING = "Sorry, this is an additional question, you cannot rollback to it. Please rollback to the earlier question"
 BRANCH_READY_NOTIFICATION = """🎉 **Your branch is ready!** Please update the project and check it out when you get a chance. 😊
 
 To get started:
@@ -42,7 +64,7 @@ Also, you can use **Canvas** to discuss the changes with me anytime around the a
 Let me know if you have any questions or suggestions! 😄"""
 FILES_NOTIFICATIONS = {
     "code": {
-        "text": "😊 Could you please provide details for the connection functions? It would really help clarify things! Thank you! You can paste all your data right here",
+        "text": "🖌️💬",
         "file_name": "entity/{entity_name}/connections/connections.py"},
     "doc": {
         "text": "😊 Could you please provide more details for the connection documentation? It would be super helpful! Please provide raw data for each endpoint if the final entity structure is different. You can paste all your data right here. Thanks so much!",
@@ -202,7 +224,8 @@ app_building_stack = [{"question": "Finished",
                        "index": 2,
                        "iteration": 0,
                        "file_name": "entity/chat.json",
-                       "max_iteration": 0},
+                       "max_iteration": 0,
+                       "stack": APP_BUILDING_STACK_KEY},
                       {"question": None,
                        "prompt": {},
                        "answer": None,
@@ -223,7 +246,8 @@ We are available in the **Google Tech Channel** to support you. If you spot any 
 
 For any direct inquiries, reach out to **ksenia.lukonina@cyoda.com**. We’re here to help! 😊
                        """,
-                       "max_iteration": 0},
+                       "max_iteration": 0,
+                       "stack": APP_BUILDING_STACK_KEY},
                       # add_design_stack
                       {"question": None,
                        "prompt": {},
@@ -233,51 +257,72 @@ For any direct inquiries, reach out to **ksenia.lukonina@cyoda.com**. We’re he
                        "flow_step": APPLICATION_DESIGN_STR,
                        "iteration": 0,
                        "fills_stack": True,
-                       "max_iteration": 0},
+                       "max_iteration": 0,
+                       "stack": APP_BUILDING_STACK_KEY},
                       {"question": None,
                        "prompt": {},
                        "answer": None,
-                       "function": {"name": "add_user_requirement"},
+                       "function": {"name": "add_user_requirement",
+                                    "prompt": "Please write a detailed summary of the user requirement. Include all the necessary details specified by the user."},
                        "file_name": "entity/user_requirement.md",
                        "flow_step": APPLICATION_DESIGN_STR,
                        "iteration": 0,
-                       "max_iteration": 0},
+                       "max_iteration": 0,
+                       "stack": APP_BUILDING_STACK_KEY},
                       # Improve the Cyoda design based on the user answer if the user wants any improvements
+                      # add_instruction
+                      {
+                          "question": "😊 Would you like to make any changes to the design? Feel free to let me know! If you are happy with the design please approve 👍 to go to the next iteration",
+                          "prompt": {},
+                          "answer": None,
+                          "function": None,
+                          "iteration": 0,
+                          "approve": True,
+                          "file_name": "entity/app_design.json",
+                          "flow_step": APPLICATION_DESIGN_STR,
+                          "max_iteration": 0,
+                          "stack": APP_BUILDING_STACK_KEY},
+                      {"question": None,
+                       "prompt": {},
+                       "answer": None,
+                       "function": {"name": "verify_cyoda_doc",
+                                    "files": {"prd_doc_path": "entity/app_design_prd.md",
+                                              "json_doc_path": "entity/app_design.json"},
+                                    "prompt": {
+                                        "text": "Verify that cyoda design json: {json_doc} totally corresponds to the PRD document {prd_doc}. Update cyoda design json if necessary. Make sure the names of the entities are the same. The number of entities and their workflows are the same. Return the up-to-date cyoda json. Return json only.",
+                                        "schema": {
+                                            "$schema": "http://json-schema.org/draft-07/schema#",
+                                            "title": "Cyoda design",
+                                            "type": "object",
+                                            "properties": {
+                                                "entities": ENTITIES_DESIGN
+                                            },
+                                            "required": [
+                                                "entities"
+                                            ]
+                                        }
+                                    }},
+                       "file_name": "entity/app_design.json",
+                       "iteration": 0,
+                       "flow_step": APPLICATION_DESIGN_STR,
+                       "max_iteration": 0,
+                       "stack": APP_BUILDING_STACK_KEY},
+
                       {"question": None,
                        "prompt": {
-                           "text": "Improve the Cyoda design based on the user answer if the user wants any improvements. Return Cyoda design json only",
-                           "schema": {
-                               "$schema": "http://json-schema.org/draft-07/schema#",
-                               "title": "Improved Cyoda design",
-                               "type": "object",
-                               "properties": {
-                                   "can_proceed": {
-                                       "type": "boolean",
-                                       "description": "Return false"},
-                                   "entities": ENTITIES_DESIGN
-                               },
-                               "required": [
-                                   "can_proceed",
-                                   "entities"
-                               ]
-                           }
+                           "text": "Improve the Cyoda PRD document based on the user answer if the user wants any improvements. Return the updated PRD document only",
                        },
-"additional_prompts": [
-                           {
-                               "text": """
-Using updated Cyoda design json, update the PRD document. Return the updated PRD document only.
-                             """,
-                               "file_name": "entity/app_design_prd.md"
-                           }
-                       ],
                        "answer": None,
                        "function": None,
-                       "file_name": "entity/app_design.json",
+                       "file_name": "entity/app_design_prd.md",
                        "flow_step": APPLICATION_DESIGN_STR,
                        "iteration": 0,
                        "additional_questions": [
-                           {"question": "Would you like to improve anything in the design?  Give me thumbs up if you are ready to proceed 👍", "approve": True}],
-                       "max_iteration": MAX_ITERATION},
+                           {
+                               "question": "Would you like to improve anything in the design?  Give me thumbs up if you are ready to proceed 👍",
+                               "approve": True}],
+                       "max_iteration": MAX_ITERATION,
+                       "stack": APP_BUILDING_STACK_KEY},
                       # Would you like to change anything in the design?
                       {
                           "question": "😊 Would you like to make any changes to the design? Feel free to let me know! If you are happy with the design please approve 👍 to go to the next iteration",
@@ -289,18 +334,21 @@ Using updated Cyoda design json, update the PRD document. Return the updated PRD
                           "example_answers": [
                               "Could you please reduce the number of entities and use only absolutely necessary entities",
                               "Could you please orchestrate the flow with a JOB entity",
+                              "Could you please orchestrate the flow with a **single** JOB entity",
                               "Could you please add an entity for ...",
                               "Could you please remove an entity for ..."],
                           "file_name": "entity/app_design.json",
                           "flow_step": APPLICATION_DESIGN_STR,
-                          "max_iteration": 0},
+                          "max_iteration": 0,
+                          "stack": APP_BUILDING_STACK_KEY},
 
                       {"notification": DESIGN_PLEASE_WAIT,
                        "prompt": {},
                        "answer": None,
                        "function": None,
                        "iteration": 0,
-                       "max_iteration": 0
+                       "max_iteration": 0,
+                       "stack": APP_BUILDING_STACK_KEY
                        },
                       {"question": None,
                        "prompt": {
@@ -355,11 +403,30 @@ sequenceDiagram
     User->>Scheduler: Schedule data ingestion job
     Scheduler->>Data Ingestion Job: Trigger scheduled data ingestion
 ...
-``` 
+```
+ ```mermaid
+journey
+    title User Flow for Downloading and Analyzing London Houses Data
+    section Start
+      User initiates the process: 5: User
+      User schedules the data ingestion job: 5: User
+...
+```
+### Entity Relationships Diagram
+```mermaid
+graph TD;
+    A[data_ingestion_job] -->|triggers| B[raw_london_houses_data];
+    B -->|transforms into| C[analyzed_london_houses_data];
+    C -->|generates| D[report_entity];
+    D -->|produces| E[final_report];
+```
                              """,
                                "file_name": "entity/app_design_prd.md"
                            }
                        ],
+                       "additional_questions": [
+                           {"question": "Would you like to specify additional detail or proceed to the next step?",
+                            "approve": True}],
                        "answer": None,
                        "file_name": "entity/app_design.json",
                        "flow_step": APPLICATION_DESIGN_STR,
@@ -368,7 +435,8 @@ sequenceDiagram
                        "ui_config": {
                            "format": "json",
                        },
-                       "max_iteration": 0},
+                       "max_iteration": 0,
+                       "stack": APP_BUILDING_STACK_KEY},
                       {
                           "notification": """
 **While we work on your app design, let me quickly introduce Cyoda...** 😄
@@ -406,7 +474,8 @@ For more on entity databases, check out this article by [Paul Schleger](https://
                           "info": True,
                           "file_name": "entity/app_design.json",
                           "flow_step": APPLICATION_DESIGN_STR,
-                          "max_iteration": 0
+                          "max_iteration": 0,
+                          "stack": APP_BUILDING_STACK_KEY
                       },
                       # Is this requirement sufficient?
                       {"question": None,
@@ -418,8 +487,28 @@ For more on entity databases, check out this article by [Paul Schleger](https://
                        "function": None,
                        "iteration": 0,
                        "flow_step": GATHERING_REQUIREMENTS_STR,
-                       "additional_questions": [],
-                       "max_iteration": MAX_ITERATION},
+                       "additional_questions": [
+                           {"question": """
+Could you please provide more details on the following? 😊 You can skip this step if you like (👍), but it will help me a lot!
+
+Which specific entities would you like to use? 🤔
+
+Application Flow Orchestration: How would you prefer to manage the application flow? 🚀
+
+* Using a single or multiple job entities? 🧩
+* Directly attaching workflows to each business entity? 🏷️
+
+Workflow Assignment: Which entities should have workflows, and what specific workflows are you envisioning? 🌟
+
+Entity Saving Triggers: How would you like to trigger the saving of entities? 💾
+Through an API call? 📱
+On a schedule? ⏰
+
+Your insights will help us tailor the solution to your needs. Thank you! 😊
+                           """,
+                            "approve": True}],
+                       "max_iteration": MAX_ITERATION,
+                       "stack": APP_BUILDING_STACK_KEY},
                       {
                           "question": "💡 What kind of application would you like to build? I'd love to hear your ideas! Feel free to share them with me! 😊",
                           "prompt": {},
@@ -440,7 +529,8 @@ For more on entity databases, check out this article by [Paul Schleger](https://
                               3. Saves the aggregated data to a report 📄
                               Once the report is generated, the application should send it to the admin's email 📧. 
                               Additionally, the data ingestion process should be scheduled to run **once a day** ⏰."""],
-                          "max_iteration": 0},
+                          "max_iteration": 0,
+                          "stack": APP_BUILDING_STACK_KEY},
 
                       # add_instruction
                       {"question": None,
@@ -450,7 +540,8 @@ For more on entity databases, check out this article by [Paul Schleger](https://
                        "file_name": "instruction.txt",
                        "iteration": 0,
                        "flow_step": GATHERING_REQUIREMENTS_STR,
-                       "max_iteration": 0},
+                       "max_iteration": 0,
+                       "stack": APP_BUILDING_STACK_KEY},
 
                       # init_chats
                       {"question": None,
@@ -459,7 +550,8 @@ For more on entity databases, check out this article by [Paul Schleger](https://
                        "function": {"name": "init_chats"},
                        "flow_step": GATHERING_REQUIREMENTS_STR,
                        "iteration": 0,
-                       "max_iteration": 0},
+                       "max_iteration": 0,
+                       "stack": APP_BUILDING_STACK_KEY},
                       # clone_repo
                       {"question": None,
                        "prompt": {},
@@ -467,7 +559,8 @@ For more on entity databases, check out this article by [Paul Schleger](https://
                        "function": {"name": "clone_repo"},
                        "iteration": 0,
                        "flow_step": GATHERING_REQUIREMENTS_STR,
-                       "max_iteration": 0},
+                       "max_iteration": 0,
+                       "stack": APP_BUILDING_STACK_KEY},
                       {
                           "notification": f"""
 In this process, we will walk through each stage of building an application, from gathering initial requirements to designing, coding, and implementing the final logic.
@@ -496,7 +589,8 @@ Each of these steps is crucial for ensuring that the application is built effici
                           "iteration": 0,
                           "file_name": "entity/app_design.json",
                           "flow_step": GATHERING_REQUIREMENTS_STR,
-                          "max_iteration": 0},
+                          "max_iteration": 0,
+                          "stack": APP_BUILDING_STACK_KEY},
                       {
                           "notification": """
 👋 Welcome to Cyoda Application Builder! We’re excited to build something amazing with you! 😄  
@@ -515,21 +609,36 @@ If something goes wrong, no worries—just roll back! 😬 Your app will be live
                           "iteration": 0,
                           "info": True,
                           "file_name": "instruction.txt",
-                          "max_iteration": 0
+                          "max_iteration": 0,
+                          "stack": APP_BUILDING_STACK_KEY
+                      },
+                      {
+                          "notification": """
+🌿🪷🏵️⚜️🌿
+""",
+                          "prompt": {},
+                          "answer": None,
+                          "function": None,
+                          "iteration": 0,
+                          "info": True,
+                          "file_name": "instruction.txt",
+                          "max_iteration": 0,
+                          "stack": APP_BUILDING_STACK_KEY
                       }
                       ]
 
 data_ingestion_stack = lambda entities: [
-    {
-        "question": f"😊✨ Are you ready to move on to the next iteration? Give me thumbs up if you are ready to proceed 👍👍",
-        "prompt": {},
-        "answer": None,
-        "function": None,
-        "index": 0,
-        "iteration": 0,
-        "flow_step": ENTITIES_DESIGN_STR,
-        "approve": True,
-        "max_iteration": 0},
+    # {
+    #     "question": f"😊✨ Are you ready to move on to the next iteration? Give me thumbs up if you are ready to proceed 👍👍",
+    #     "prompt": {},
+    #     "answer": None,
+    #     "function": None,
+    #     "index": 0,
+    #     "iteration": 0,
+    #     "flow_step": ENTITIES_DESIGN_STR,
+    #     "approve": True,
+    #     "max_iteration": 0,
+    #     "stack": DATA_INGESTION_STACK_KEY},
     {
         "question": None,
         "prompt": {},
@@ -537,13 +646,13 @@ data_ingestion_stack = lambda entities: [
         "function": {"name": "generate_data_ingestion_code",
                      "prompts": {
                          "EXTERNAL_SOURCES_PULL_BASED_RAW_DATA": {
-                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and return processed (mapped) data without saving to repository. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Also generate tests so that the user can try out the functions right away in isolated environment. No need to mock anything. **Tests should be in the same file with the code**",
+                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and return processed (mapped) data without saving to repository. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. ingest_data function takes request parameters as arguments if there are any. Also generate tests so that the user can try out the functions right away in isolated environment. No need to mock anything. **Tests should be in the same file with the code**",
                          },
                          "WEB_SCRAPING_PULL_BASED_RAW_DATA": {
-                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and return processed (mapped) data without saving to repository. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Also generate tests so that the user can try out the functions right away in isolated environment. No need to mock anything.  **Tests should be in the same file with the code**",
+                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and return processed (mapped) data without saving to repository. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. ingest_data function takes request parameters as arguments if there are any. Also generate tests so that the user can try out the functions right away in isolated environment. No need to mock anything.  **Tests should be in the same file with the code**",
                          },
                          "TRANSACTIONAL_PULL_BASED_RAW_DATA": {
-                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and return processed (mapped) data without saving to repository. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. Also generate tests so that the user can try out the functions right away in isolated environment. No need to mock anything.  **Tests should be in the same file with the code**",
+                             "text": "Generate Python code to fetch data from the external data source described in {doc}. The code should ingest the data according to the documentation and return processed (mapped) data without saving to repository. If the data source response differs from the entity {entity_data}, map the raw data to the entity structure. If no mapping is needed, assume the response matches the entity format. Create a public function ingest_data(...) that handles the ingestion process. ingest_data function takes request parameters as arguments if there are any. Also generate tests so that the user can try out the functions right away in isolated environment. No need to mock anything.  **Tests should be in the same file with the code**",
                          }
                      }},
         "context": {
@@ -554,7 +663,8 @@ data_ingestion_stack = lambda entities: [
         "notification_text": "🎉 The code for data ingestion has been generated successfully! Please check it out and click 'Approve' if you're ready to move on to the next iteration. Feel free to use Canvas QA to suggest any improvements! 😊",
         "iteration": 0,
         "flow_step": ENTITIES_DESIGN_STR,
-        "max_iteration": MAX_ITERATION
+        "max_iteration": MAX_ITERATION,
+        "stack": DATA_INGESTION_STACK_KEY
     },
     {
         "question": f"🚀 Are you ready to start the bulk generation? Give me thumbs up to let me know you're good to go!👍👍 😊",
@@ -566,13 +676,14 @@ data_ingestion_stack = lambda entities: [
         "iteration": 0,
         "flow_step": ENTITIES_DESIGN_STR,
         "files_notifications": FILES_NOTIFICATIONS,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": DATA_INGESTION_STACK_KEY},
     {
         "question": None,
         "prompt": {},
         "answer": None,
         "function": {"name": "check_entity_definitions"},
-        "notification_text": "Please update the file contents for {file_name}",
+        "notification_text": "Please consider updating the file contents for {file_name}",
         "files_notifications": FILES_NOTIFICATIONS,
         "context": {
             "files": [],
@@ -580,7 +691,8 @@ data_ingestion_stack = lambda entities: [
         "entities": entities,
         "iteration": 0,
         "flow_step": ENTITIES_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": DATA_INGESTION_STACK_KEY},
     {
         "question": f"😊 Could you please update the files with the necessary information? Once you're done, just click 'Approve' 👍. Thanks so much!",
         "prompt": {},
@@ -590,7 +702,8 @@ data_ingestion_stack = lambda entities: [
         "index": 0,
         "iteration": 0,
         "flow_step": ENTITIES_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": DATA_INGESTION_STACK_KEY},
     {
         "question": None,
         "prompt": {},
@@ -603,7 +716,8 @@ data_ingestion_stack = lambda entities: [
         "entities": entities,
         "iteration": 0,
         "flow_step": ENTITIES_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": DATA_INGESTION_STACK_KEY},
     {
         "question": None,
         "prompt": {},
@@ -614,7 +728,8 @@ data_ingestion_stack = lambda entities: [
         },
         "iteration": 0,
         "flow_step": ENTITIES_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": DATA_INGESTION_STACK_KEY},
     {
         "notification": """
 We are currently generating templates for your data ingestion entities! 🎉 Once I’m done, you’ll find each entity in a separate folder: `entity/{entity_name}/{entity_name}.json`. 🗂️
@@ -640,7 +755,8 @@ Looking forward to your feedback! 🌟
         "answer": None,
         "function": None,
         "iteration": 0,
-        "max_iteration": 0
+        "max_iteration": 0,
+        "stack": DATA_INGESTION_STACK_KEY
     },
     {
         "notification": f"""Proceeding to {ENTITIES_DESIGN_STR}
@@ -652,7 +768,8 @@ Looking forward to your feedback! 🌟
         "function": None,
         "info": True,
         "iteration": 0,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": DATA_INGESTION_STACK_KEY},
 ]
 
 entity_stack = lambda entities: [
@@ -665,14 +782,15 @@ entity_stack = lambda entities: [
         "index": 0,
         "iteration": 0,
         "flow_step": ENTITIES_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": ENTITY_STACK_KEY},
     {
         "question": None,
         "prompt": {},
         "answer": None,
         "function": {"name": "generate_entities_template",
                      "prompts": {
-                         "ai_question": "Based on the data you have in the context and your understanding of the users requirement please generate json data example for entity {entity_name}. This json data should reflect business logic of the entity - it is not related to entity design schema!!!! it should not have any relevance to Cyoda. {user_data}. Return json with markdown."
+                         "ai_question": "Based on the data you have in the context and your understanding of the users requirement please generate json data example for entity {entity_name}. This json data should reflect business logic of the entity - it is not related to entity design schema!!!! it should not have any relevance to Cyoda. {user_data}. If there is any data ingestion in the application flow, make sure you add request parameters at least to the orchestration entity. Return json with markdown."
                      }},
         "files_notifications": FILES_NOTIFICATIONS,
         "context": {
@@ -682,7 +800,8 @@ entity_stack = lambda entities: [
         "iteration": 0,
         "flow_step": ENTITIES_DESIGN_STR,
         "notification_text": f"😊 Could you please take a look at the generated entity examples? If you have a specific structure in mind, feel free to adjust my suggestions and click 'Approve' 👍. You can also use Canvas to edit the entities together. Thanks so much!",
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": ENTITY_STACK_KEY},
     {
         "notification": """
 We are currently generating templates for your entities! 🎉 Once I’m done, you’ll find each entity in a separate folder: `entity/{entity_name}/{entity_name}.json`. 🗂️
@@ -707,7 +826,8 @@ Looking forward to your feedback! 🌟
         "iteration": 0,
         "file_name": "entity/app_design.json",
         "flow_step": APPLICATION_DESIGN_STR,
-        "max_iteration": 0
+        "max_iteration": 0,
+        "stack": ENTITY_STACK_KEY
     },
     {
         "question": f"🚀 We’re all set to start generating the entities! If you have any additional details you'd like me to include, feel free to share. No worries if anything goes wrong – we can always fix it later! 😊 If you are ready to proceed give me a thumbs up! 👍 (currently: approve button)",
@@ -719,7 +839,8 @@ Looking forward to your feedback! 🌟
         "approve": True,
         "flow_step": ENTITIES_DESIGN_STR,
         "files_notifications": FILES_NOTIFICATIONS,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": ENTITY_STACK_KEY},
     {
         "question": None,
         "prompt": {},
@@ -732,7 +853,8 @@ Looking forward to your feedback! 🌟
         "notification_text": "",
         "iteration": 0,
         "flow_step": ENTITIES_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": ENTITY_STACK_KEY},
 ]
 
 workflow_stack = lambda entity: [
@@ -765,7 +887,8 @@ workflow_stack = lambda entity: [
      "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.json",
      "flow_step": WORKFLOW_DESIGN_STR,
      "additional_questions": [{"question": "Would you like to improve the workflow?", "approve": True}],
-     "max_iteration": MAX_ITERATION},
+     "max_iteration": MAX_ITERATION,
+     "stack": WORKFLOW_STACK_KEY},
     # Would you like to add any changes to entity workflow
     {
         "question": f"Would you like to add any changes to entity workflow: entity/{entity.get("entity_name")}/workflow/workflow.json . If not - you can just approve and proceed to the next step 👍",
@@ -777,7 +900,8 @@ workflow_stack = lambda entity: [
         "iteration": 0,
         "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.json",
         "flow_step": WORKFLOW_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": WORKFLOW_STACK_KEY},
     {"question": None,
      "prompt": {},
      "answer": None,
@@ -786,7 +910,8 @@ workflow_stack = lambda entity: [
      "entity": entity,
      "iteration": 0,
      "flow_step": WORKFLOW_DESIGN_STR,
-     "max_iteration": 0},
+     "max_iteration": 0,
+     "stack": WORKFLOW_STACK_KEY},
     {
         "question": None,
         "prompt": {},
@@ -797,7 +922,8 @@ workflow_stack = lambda entity: [
         },
         "iteration": 0,
         "flow_step": WORKFLOW_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": WORKFLOW_STACK_KEY},
     {
         "notification": """
 **While we work on your app design, let me quickly introduce Cyoda...** 😄
@@ -845,7 +971,8 @@ For more on Entity Workflows and EDA, check out this article by [Paul Schleger](
         "iteration": 0,
         "file_name": "entity/app_design.json",
         "flow_step": APPLICATION_DESIGN_STR,
-        "max_iteration": 0
+        "max_iteration": 0,
+        "stack": WORKFLOW_STACK_KEY
     },
     {
         "notification": f"""Proceeding to {WORKFLOW_DESIGN_STR}
@@ -857,7 +984,8 @@ For more on Entity Workflows and EDA, check out this article by [Paul Schleger](
         "function": None,
         "info": True,
         "iteration": 0,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": WORKFLOW_STACK_KEY},
 ]
 
 processors_stack = lambda entity: [
@@ -884,7 +1012,8 @@ processors_stack = lambda entity: [
      "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py",
      "flow_step": WORKFLOW_CODE_DESIGN_STR,
      "additional_questions": [{"question": QUESTION_OR_VALIDATE, "approve": True}],
-     "max_iteration": MAX_ITERATION
+     "max_iteration": MAX_ITERATION,
+     "stack": PROCESSORS_STACK_KEY
      },
     # Would you like to specify any details for generating processors
     {
@@ -900,7 +1029,8 @@ processors_stack = lambda entity: [
                             "What would you recommend?",
                             "I've already provided all the necessary details in the session context"],
         "file_name": f"entity/{entity.get("entity_name")}/workflow/workflow.py",
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": PROCESSORS_STACK_KEY},
     {
         "question": None,
         "prompt": {},
@@ -915,7 +1045,8 @@ processors_stack = lambda entity: [
         },
         "iteration": 0,
         "flow_step": WORKFLOW_CODE_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": PROCESSORS_STACK_KEY},
     {
         "notification": f"""
 Now it’s time to give life to {entity.get('entity_name')} workflow! 🎉
@@ -929,7 +1060,8 @@ Our workflow will have a set of functions 🛠️ (think of them as isolated fun
         "info": True,
         "file_name": "entity/app_design.json",
         "flow_step": APPLICATION_DESIGN_STR,
-        "max_iteration": 0
+        "max_iteration": 0,
+        "stack": PROCESSORS_STACK_KEY
     },
     {
         "notification": f"""Proceeding to {WORKFLOW_CODE_DESIGN_STR}
@@ -941,7 +1073,8 @@ Our workflow will have a set of functions 🛠️ (think of them as isolated fun
         "function": None,
         "info": True,
         "iteration": 0,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": PROCESSORS_STACK_KEY},
 ]
 
 scheduler_stack = lambda entity: [
@@ -985,7 +1118,8 @@ scheduler_stack = lambda entity: [
      "file_name": f"entity/{entity.get("entity_name")}/logic.py",
      "flow_step": LOGIC_CODE_DESIGN_STR,
      "additional_questions": [{"question": QUESTION_OR_VALIDATE, "approve": True}],
-     "max_iteration": MAX_ITERATION
+     "max_iteration": MAX_ITERATION,
+     "stack": SCHEDULER_STACK_KEY
      },
     {
         "question": f"Let's generate the logic to schedule saving the entity {entity.get("entity_name")}. Would you like to specify any details?",
@@ -1000,7 +1134,8 @@ scheduler_stack = lambda entity: [
         "example_answers": ["Could you please take into account ...",
                             "What would you recommend?",
                             "I've already provided all the necessary details in the session context"],
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": SCHEDULER_STACK_KEY},
     {
         "question": None,
         "prompt": {},
@@ -1017,7 +1152,8 @@ scheduler_stack = lambda entity: [
         },
         "iteration": 0,
         "flow_step": LOGIC_CODE_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": SCHEDULER_STACK_KEY},
     {
         "notification": f"""Proceeding to {LOGIC_CODE_DESIGN_STR}
         
@@ -1028,7 +1164,8 @@ scheduler_stack = lambda entity: [
         "function": None,
         "info": True,
         "iteration": 0,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": SCHEDULER_STACK_KEY},
 ]
 
 form_submission_stack = lambda entity: [
@@ -1046,7 +1183,8 @@ form_submission_stack = lambda entity: [
      "file_name": f"entity/{entity.get("entity_name")}/logic.py",
      "flow_step": LOGIC_CODE_DESIGN_STR,
      "additional_questions": [{"question": QUESTION_OR_VALIDATE, "approve": True}],
-     "max_iteration": MAX_ITERATION},
+     "max_iteration": MAX_ITERATION,
+     "stack": FORM_SUBMISSION_STACK_KEY},
     # Would you like to edit the model
     # {"question": "Would you like to edit the code?",
     #  "prompt": {},
@@ -1075,7 +1213,8 @@ form_submission_stack = lambda entity: [
      "file_name": f"entity/{entity.get("entity_name")}/logic.py",
      "flow_step": LOGIC_CODE_DESIGN_STR,
      "additional_questions": [{"question": QUESTION_OR_VALIDATE, "approve": True}],
-     "max_iteration": MAX_ITERATION
+     "max_iteration": MAX_ITERATION,
+     "stack": FORM_SUBMISSION_STACK_KEY
      },
     {
         "question": f"Let's generate the logic to process the form application and saving the entity {entity.get("entity_name")} with the form entity. Would you like to specify any details?",
@@ -1090,7 +1229,8 @@ form_submission_stack = lambda entity: [
         "example_answers": ["Could you please take into account ...",
                             "What would you recommend?",
                             "I've already provided all the necessary details in the session context"],
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": FORM_SUBMISSION_STACK_KEY},
     {
         "question": None,
         "prompt": {},
@@ -1107,7 +1247,8 @@ form_submission_stack = lambda entity: [
         },
         "iteration": 0,
         "flow_step": LOGIC_CODE_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": FORM_SUBMISSION_STACK_KEY},
     {
         "notification": f"""Proceeding to {WORKFLOW_CODE_DESIGN_STR}
         
@@ -1118,7 +1259,8 @@ form_submission_stack = lambda entity: [
         "function": None,
         "info": True,
         "iteration": 0,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": FORM_SUBMISSION_STACK_KEY},
 ]
 
 file_upload_stack = lambda entity: [
@@ -1136,7 +1278,8 @@ file_upload_stack = lambda entity: [
      "file_name": f"entity/{entity.get("entity_name")}/logic.py",
      "flow_step": LOGIC_CODE_DESIGN_STR,
      "additional_questions": [{"question": QUESTION_OR_VALIDATE, "approve": True}],
-     "max_iteration": MAX_ITERATION},
+     "max_iteration": MAX_ITERATION,
+     "stack": FILE_UPLOAD_STACK_KEY},
     # Would you like to edit the model
     # {"question": "Would you like to edit the code?",
     #  "prompt": {},
@@ -1165,7 +1308,8 @@ file_upload_stack = lambda entity: [
      "file_name": f"entity/{entity.get("entity_name")}/logic.py",
      "flow_step": LOGIC_CODE_DESIGN_STR,
      "additional_questions": [{"question": QUESTION_OR_VALIDATE, "approve": True}],
-     "max_iteration": MAX_ITERATION
+     "max_iteration": MAX_ITERATION,
+     "stack": FILE_UPLOAD_STACK_KEY
      },
     {
         "question": f"Let's generate the logic to upload the file and saving the entity {entity.get("entity_name")} based on the file contents. Would you like to specify any details?",
@@ -1180,7 +1324,8 @@ file_upload_stack = lambda entity: [
         "example_answers": ["Could you please take into account ...",
                             "What would you recommend?",
                             "I've already provided all the necessary details in the session context"],
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": FILE_UPLOAD_STACK_KEY},
     {
         "question": None,
         "prompt": {},
@@ -1197,7 +1342,8 @@ file_upload_stack = lambda entity: [
         },
         "iteration": 0,
         "flow_step": LOGIC_CODE_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": FILE_UPLOAD_STACK_KEY},
     {
         "notification": f"""Proceeding to {WORKFLOW_CODE_DESIGN_STR}
         
@@ -1208,25 +1354,27 @@ file_upload_stack = lambda entity: [
         "function": None,
         "info": True,
         "iteration": 0,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": FILE_UPLOAD_STACK_KEY},
 ]
 
 api_request_stack = lambda entity: [
     # ========================================================================================================
-    {"question": None,
-     "prompt": {
-         "text": f"Improve the code for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. User says: ",
-
-     },
-     "answer": None,
-     "function": None,
-     "entity": entity,
-     "index": 0,
-     "iteration": 0,
-     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
-     "flow_step": LOGIC_CODE_DESIGN_STR,
-     "additional_questions": [{"question": QUESTION_OR_VALIDATE, "approve": True}],
-     "max_iteration": MAX_ITERATION},
+    # {"question": None,
+    #  "prompt": {
+    #      "text": f"Improve the code for {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. User says: ",
+    #
+    #  },
+    #  "answer": None,
+    #  "function": None,
+    #  "entity": entity,
+    #  "index": 0,
+    #  "iteration": 0,
+    #  "file_name": f"entity/{entity.get("entity_name")}/logic.py",
+    #  "flow_step": LOGIC_CODE_DESIGN_STR,
+    #  "additional_questions": [{"question": QUESTION_OR_VALIDATE, "approve": True}],
+    #  "max_iteration": MAX_ITERATION,
+    #  "stack": API_REQUEST_STACK_KEY},
     # Would you like to edit the model
     # {"question": "Would you like to edit the code?",
     #  "prompt": {},
@@ -1243,7 +1391,7 @@ api_request_stack = lambda entity: [
     # Generate the processor functions
     {"question": None,
      "prompt": {
-         "text": f"Generate the api file to save the entity {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. **Tests should be in the same file with the code** User says: ",
+         "text": f"Generate the quart additional api.py file to save the entity {entity.get("entity_name")} based on the user suggestions if there are any, if not you can proceed. Also generate tests with mocks for external services or functions so that the user can try out the functions right away in isolated environment. **Tests should be in the same file with the code** User says: ",
      },
      "answer": None,
      "function": None,
@@ -1251,10 +1399,11 @@ api_request_stack = lambda entity: [
      "index": 0,
      "iteration": 0,
      "context": {"prompt": {"data": [entity.get("entity_name"), "data"]}},
-     "file_name": f"entity/{entity.get("entity_name")}/logic.py",
+     "file_name": f"entity/{entity.get("entity_name")}/api.py",
      "flow_step": LOGIC_CODE_DESIGN_STR,
      "additional_questions": [{"question": QUESTION_OR_VALIDATE, "approve": True}],
-     "max_iteration": MAX_ITERATION
+     "max_iteration": MAX_ITERATION,
+     "stack": API_REQUEST_STACK_KEY
      },
     {
         "question": f"Let's generate the api for processing entity and saving the entity {entity.get("entity_name")}. Would you like to specify any details?",
@@ -1269,7 +1418,8 @@ api_request_stack = lambda entity: [
         "example_answers": ["Could you please take into account ...",
                             "What would you recommend?",
                             "I've already provided all the necessary details in the session context"],
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": API_REQUEST_STACK_KEY},
     {
         "question": None,
         "prompt": {},
@@ -1286,7 +1436,8 @@ api_request_stack = lambda entity: [
         },
         "iteration": 0,
         "flow_step": LOGIC_CODE_DESIGN_STR,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": API_REQUEST_STACK_KEY},
     {
         "notification": f"""Proceeding to {WORKFLOW_CODE_DESIGN_STR}
         
@@ -1297,5 +1448,22 @@ api_request_stack = lambda entity: [
         "function": None,
         "info": True,
         "iteration": 0,
-        "max_iteration": 0},
+        "max_iteration": 0,
+        "stack": API_REQUEST_STACK_KEY},
 ]
+
+
+def get_stack_by_name(name: str):
+    stacks = {
+        FILE_UPLOAD_STACK_KEY: copy.deepcopy(file_upload_stack),
+        API_REQUEST_STACK_KEY: copy.deepcopy(api_request_stack),
+        FORM_SUBMISSION_STACK_KEY: copy.deepcopy(form_submission_stack),
+        SCHEDULER_STACK_KEY: copy.deepcopy(scheduler_stack),
+        PROCESSORS_STACK_KEY: copy.deepcopy(processors_stack),
+        WORKFLOW_STACK_KEY: copy.deepcopy(workflow_stack),
+        ENTITY_STACK_KEY: copy.deepcopy(entity_stack),
+        DATA_INGESTION_STACK_KEY: copy.deepcopy(data_ingestion_stack),
+        APP_BUILDING_STACK_KEY: copy.deepcopy(app_building_stack)
+    }
+
+    return stacks.get(name, None)

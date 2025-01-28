@@ -2,17 +2,20 @@ import asyncio
 import copy
 import functools
 import logging
+from datetime import timedelta
 
 import jwt
 
 from quart import Quart, request, jsonify, send_from_directory, websocket
 from quart_cors import cors
-from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX, API_URL
+from quart_rate_limiter import RateLimiter, rate_limit
+from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX, API_URL, ENABLE_AUTH, MAX_TEXT_SIZE, \
+    MAX_FILE_SIZE, USER_FILES_DIR_NAME
 from common.exception.exceptions import ChatNotFoundException, UnauthorizedAccessException
 from common.util.utils import clean_formatting, send_get_request, read_file, \
-    get_project_file_name, format_json_if_needed, current_timestamp
+    get_project_file_name, current_timestamp
 from entity.chat.data.data import app_building_stack, APP_BUILDER_FLOW, DESIGN_PLEASE_WAIT, \
-    APPROVE_WARNING, DESIGN_IN_PROGRESS_WARNING
+    APPROVE_WARNING, DESIGN_IN_PROGRESS_WARNING, OPERATION_NOT_SUPPORTED_WARNING, ADDITIONAL_QUESTION_ROLLBACK_WARNING
 from entity.chat.workflow.helper_functions import git_pull, _save_file
 from logic.logic import process_dialogue_script
 from logic.init import ai_service, cyoda_token, entity_service, chat_lock
@@ -24,7 +27,7 @@ logger = logging.getLogger('django')
 
 app = Quart(__name__, static_folder='static', static_url_path='')
 app = cors(app, allow_origin="*")
-
+rate_limiter = RateLimiter(app)
 
 @app.before_serving
 async def add_cors_headers():
@@ -58,72 +61,34 @@ async def handle_any_exception(error):
 def auth_required(func):
     @functools.wraps(func)  # This ensures the original function's name and metadata are preserved
     async def wrapper(*args, **kwargs):
-        # Check for Authorization header
-        auth_header = websocket.headers.get('Authorization') if websocket else request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({"error": "Missing Authorization header"}), 401
 
-        token = auth_header.split(" ")[1]
+        if ENABLE_AUTH:
+            # Check for Authorization header
+            auth_header = websocket.headers.get('Authorization') if websocket else request.headers.get('Authorization')
+            if not auth_header:
+                return jsonify({"error": "Missing Authorization header"}), 401
 
-        # Call external service to validate the token
-        response = await send_get_request(token, API_URL, "v1")
-        # todo
-        if not response or (response.get("status") and response.get("status") == 401):
-            raise UnauthorizedAccessException("Invalid token")
+            token = auth_header.split(" ")[1]
+
+            # Call external service to validate the token
+            response = await send_get_request(token, API_URL, "v1")
+            # todo
+            if not response or (response.get("status") and response.get("status") == 401):
+                raise UnauthorizedAccessException("Invalid token")
 
         # If the token is valid, proceed to the requested route
         return await func(*args, **kwargs)
 
     return wrapper
 
-
-# @app.websocket(API_PREFIX + '/ws')
-# @auth_required
-# async def ws():
-#     try:
-#         while True:
-#             # If you need to keep the connection alive
-#             # or just block until client disconnects.
-#             # If client disconnects, a WebsocketDisconnect will be raised.
-#             event = await clients_queue.get()
-#             await websocket.send(event)
-#     except asyncio.CancelledError:
-#         # Handle the cancellation gracefully
-#         # You can log the cancellation or perform any other necessary actions
-#         pass
-
-
-# @app.websocket('/ws')
-# async def ws():
-#     # Receive technical_id from the client when the connection is established
-#     technical_id = await websocket.receive()
-#
-#     # Map the technical_id to the websocket connection
-#     clients_map[technical_id] = websocket
-#
-#     try:
-#         while True:
-#             # Wait for an event from the queue
-#             event = await clients_queue.get()
-#
-#             # Directly check if there's a client corresponding to the event's id
-#             if event['id'] in clients_map:
-#                 # Send the event to the client
-#                 await clients_map[event['id']].send(event['data'])
-#             else:
-#                 # If the client is not found (e.g., disconnected), you can log or ignore
-#                 pass
-#
-#     except asyncio.CancelledError:
-#         # Handle client disconnection (can clean up if necessary)
-#         pass
-#     finally:
-#         # Clean up when the WebSocket connection is closed
-#         if technical_id in clients_map:
-#             del clients_map[technical_id]
-
+def _get_user_token(auth_header):
+    if not auth_header:
+        return None
+    token = auth_header.split(" ")[1]
+    return token
 
 @app.route('/')
+@rate_limit(30, timedelta(minutes=1))
 async def index():
     # Ensure that 'index.html' is located in the 'static' folder
     return await send_from_directory(app.static_folder, 'index.html')
@@ -131,12 +96,14 @@ async def index():
 
 @app.route(API_PREFIX + '/chat-flow', methods=['GET'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def get_chat_flow():
     return jsonify(APP_BUILDER_FLOW)
 
 
 @app.route(API_PREFIX + '/chats', methods=['GET'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def get_chats():
     auth_header = request.headers.get('Authorization')
     user_id = _get_user_id(auth_header)
@@ -171,6 +138,7 @@ async def get_chats():
 
 @app.route(API_PREFIX + '/chats/<technical_id>', methods=['GET'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def get_chat(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = await _get_chat_for_user(auth_header, technical_id)
@@ -192,6 +160,7 @@ async def get_chat(technical_id):
 
 @app.route(API_PREFIX + '/chats/<technical_id>', methods=['DELETE'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def delete_chat(technical_id):
     auth_header = request.headers.get('Authorization')
     await _get_chat_for_user(auth_header, technical_id)
@@ -206,6 +175,7 @@ async def delete_chat(technical_id):
 
 @app.route(API_PREFIX + '/chats', methods=['POST'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def add_chat():
     auth_header = request.headers.get('Authorization')
     user_id = _get_user_id(auth_header)
@@ -251,6 +221,7 @@ async def add_chat():
 # polling for new questions here
 @app.route(API_PREFIX + '/chats/<technical_id>/questions', methods=['GET'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def get_question(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = await _get_chat_for_user(auth_header, technical_id)
@@ -258,105 +229,16 @@ async def get_question(technical_id):
     return await poll_questions(auth_header, chat, questions_queue, technical_id)
 
 
-# "questions": [
-#        {
-#            "answer": "",
-#            "context": {},
-#            "data": {},
-#            "entity": {},
-#            "file_name": "entity/app_design.json",
-#            "flow_step": "gathering requirements",
-#            "function": {},
-#            "index": 0,
-#            "iteration": 2,
-#            "max_iteration": 15,
-#            "notification": "^_^, I've pushed the changes to entity/app_design.json . Could you please have a look \ud83d\ude38",
-#            "prompt": {},
-#            "question": ""
-#        },
-#        {
-#            "answer": "",
-#            "context": {},
-#            "data": {},
-#            "entity": {},
-#            "file_name": "entity/app_design.json",
-#            "flow_step": "gathering requirements",
-#            "function": {},
-#            "index": 0,
-#            "iteration": 1,
-#            "max_iteration": 15,
-#            "notification": "",
-#            "prompt": {},
-#            "question": {
-#                "can_proceed": false,
-#                "questions_to_answer": [
-#                    "ToAE4WYJoCX"
-#                ]
-#            }
-#        },
-async def poll_questions(auth_header, chat, questions_queue, technical_id):
-    try:
-        questions_to_user = []
-        while questions_queue:
-            questions_to_user.append(_process_question(questions_queue.pop(0)))
-        if len(questions_to_user) > 0:
-            await entity_service.update_item(token=auth_header,
-                                             entity_model="chat",
-                                             entity_version=ENTITY_VERSION,
-                                             technical_id=technical_id,
-                                             entity=chat,
-                                             meta={})
-        return jsonify({"questions": questions_to_user}), 200
-    except Exception as e:
-        logger.exception(e)
-        return jsonify({"questions": []}), 200  # No Content
-
-
-def _process_question(question):
-    if question.get("question"):
-        question = format_json_if_needed(question, "question")
-
-    if question.get("notification"):
-        question = format_json_if_needed(question, "notification")
-    if question.get("question") and question.get("ui_config"):
-        # Create a deep copy of the question object
-        new_question = copy.deepcopy(question)
-        result = []
-
-        # Iterating through display_keys in the ui_config
-        for key_object in new_question.get("ui_config", {}).get("display_keys", []):
-            # Extract the key from the key_object (the dictionary key)
-            if isinstance(key_object, dict):
-                for key, value in key_object.items():
-                    # Append the corresponding value from the "question" dictionary using the extracted key
-                    if key in new_question.get("question", {}):
-                        result.append(value)
-                        result.append(new_question.get("question").get(key))
-
-        # Combine the values into a single string
-        new_question["question"] = " ".join(str(item) for item in result)
-
-        return new_question
-    if question.get("question") and question.get("example_answers"):
-        question["question"] = f"""
-{question["question"]}
-
-***Example answers***:
-{'\n\n'.join([answer.strip() for answer in question.get("example_answers", [])])}
-"""
-    # Return the original question if conditions are not met
-    return question
-
-
 @app.route(API_PREFIX + '/chats/<technical_id>/notification', methods=['PUT'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def edit_file(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = await _get_chat_for_user(auth_header, technical_id)
     req_data = await request.get_json()
     # todo
     data = req_data.get('notification')
-    if data and len(str(data).encode('utf-8')) > 1 * 1024 * 1024:
+    if data and len(str(data).encode('utf-8')) > MAX_TEXT_SIZE:
         return jsonify({"error": "Answer size exceeds 1MB limit"}), 400
     await _save_file(chat_id=chat["chat_id"], _data=data, item=req_data.get('file_name'))
     finished_flow = chat["chat_flow"].get("finished_flow", [])
@@ -378,18 +260,20 @@ async def edit_file(technical_id):
 
 @app.route(API_PREFIX + '/chats/<technical_id>/text-questions', methods=['POST'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def submit_question_text(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = await _get_chat_for_user(auth_header, technical_id)
 
     req_data = await request.get_json()
     question = req_data.get('question')
-    res = await _submit_question_helper(chat, question)
+    res = await _submit_question_helper(auth_header, chat, question)
     return res
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/questions', methods=['POST'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def submit_question(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = await _get_chat_for_user(auth_header, technical_id)
@@ -399,21 +283,26 @@ async def submit_question(technical_id):
     question = req_data.get('question')
     file = await request.files
     user_file = file.get('file')
+    if user_file.content_length > MAX_FILE_SIZE:
+        return {"error": f"File size exceeds {MAX_FILE_SIZE} limit"}
     res = await _submit_question_helper(chat, question, user_file)
     return res
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/push-notify', methods=['POST'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def push_notify(technical_id):
-    auth_header = request.headers.get('Authorization')
-    chat = await _get_chat_for_user(auth_header, technical_id)
-    await git_pull(chat['chat_id'])
-    return await _submit_answer_helper(technical_id, PUSH_NOTIFICATION, auth_header, chat)
+    return jsonify({"error": OPERATION_NOT_SUPPORTED_WARNING}), 400
+    # auth_header = request.headers.get('Authorization')
+    # chat = await _get_chat_for_user(auth_header, technical_id)
+    # await git_pull(chat['chat_id'])
+    # return await _submit_answer_helper(technical_id, PUSH_NOTIFICATION, auth_header, chat)
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/approve', methods=['POST'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def approve(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = await _get_chat_for_user(auth_header, technical_id)
@@ -422,9 +311,12 @@ async def approve(technical_id):
 
 @app.route(API_PREFIX + '/chats/<technical_id>/rollback', methods=['POST'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def rollback(technical_id):
     auth_header = request.headers.get('Authorization')
     req_data = await request.get_json()
+    if not req_data.get('question') or not req_data.get('stack'):
+        return jsonify({"error": ADDITIONAL_QUESTION_ROLLBACK_WARNING}), 400
     question = req_data.get('question') if req_data else None
     chat = await _get_chat_for_user(auth_header, technical_id)
     return await rollback_dialogue_script(technical_id, auth_header, chat, question)
@@ -432,18 +324,20 @@ async def rollback(technical_id):
 
 @app.route(API_PREFIX + '/chats/<technical_id>/text-answers', methods=['POST'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def submit_answer_text(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = await _get_chat_for_user(auth_header, technical_id)
     req_data = await request.get_json()
     answer = req_data.get('answer')
-    if answer and len(str(answer).encode('utf-8')) > 1 * 1024 * 1024:
+    if answer and len(str(answer).encode('utf-8')) > MAX_TEXT_SIZE:
         return jsonify({"error": "Answer size exceeds 1MB limit"}), 400
     return await _submit_answer_helper(technical_id, answer, auth_header, chat)
 
 
 @app.route(API_PREFIX + '/chats/<technical_id>/answers', methods=['POST'])
 @auth_required
+@rate_limit(30, timedelta(minutes=1))
 async def submit_answer(technical_id):
     auth_header = request.headers.get('Authorization')
     chat = await _get_chat_for_user(auth_header, technical_id)
@@ -454,13 +348,19 @@ async def submit_answer(technical_id):
     # Check if a file has been uploaded
     file = await request.files
     user_file = file.get('file')
+    if user_file.content_length > MAX_FILE_SIZE:
+        return {"error": f"File size exceeds {MAX_FILE_SIZE} limit"}
     return await _submit_answer_helper(technical_id, answer, auth_header, chat, user_file)
 
 
 def _get_user_id(auth_header):
     try:
-        if not auth_header:
+        if not auth_header and ENABLE_AUTH:
             return jsonify({"error": "Invalid token"}), 401
+        if not ENABLE_AUTH:
+            user_ip = request.remote_addr
+            user_agent = request.headers.get('User-Agent', '')
+            return f'User IP: {user_ip}, User-Agent: {user_agent}'
         token = auth_header.split(" ")[1]
         # Decode the JWT without verifying the signature
         # The `verify=False` option ensures that we do not verify the signature
@@ -491,7 +391,7 @@ async def _get_chat_for_user(auth_header, technical_id):
     return chat
 
 
-async def _submit_question_helper(chat, question, user_file=None):
+async def _submit_question_helper(auth_header, chat, question, user_file=None):
     # Check if a file has been uploaded
 
     # Validate input
@@ -505,12 +405,12 @@ async def _submit_question_helper(chat, question, user_file=None):
     # Process file if provided
     if user_file:
         file_name = user_file.filename
-        folder_name = "user_files"
+        folder_name = USER_FILES_DIR_NAME
         # Save the uploaded file asynchronously
         await _save_file(chat_id=chat["chat_id"], _data=user_file, item=file_name, folder_name=folder_name)
         # Call AI service with the file
         result = await ai_service.ai_chat(
-            token=cyoda_token,
+            token=auth_header,
             chat_id=chat["chat_id"],
             ai_endpoint=CYODA_AI_API,
             ai_question=question,
@@ -519,7 +419,7 @@ async def _submit_question_helper(chat, question, user_file=None):
     else:
         # Call AI service without a file
         result = await ai_service.ai_chat(
-            token=cyoda_token,
+            token=auth_header,
             chat_id=chat["chat_id"],
             ai_endpoint=CYODA_AI_API,
             ai_question=question
@@ -537,30 +437,29 @@ async def rollback_dialogue_script(technical_id, auth_header, chat, question):
     if not finished_flow[-1].get("question"):
         return jsonify({
             "message": DESIGN_IN_PROGRESS_WARNING}), 400
+    if not question:
+            return jsonify({
+                "message": OPERATION_NOT_SUPPORTED_WARNING}), 400
     event = finished_flow.pop()
-    if question:
-        while finished_flow and (not event.get("question") or event.get("question") != question):
-            current_flow.append(event)
-            event = finished_flow.pop()
-    else:
-        while finished_flow and (not event.get("function") or event.get("function").get("name") != "refresh_context"):
-            current_flow.append(event)
-            event = finished_flow.pop()
-    current_flow.append(event)
+    while finished_flow and (not event.get("question") or event.get("question") != question):
+        if event.get("stack") and (not event.get('iteration') or (event.get('iteration') and event.get('iteration') < 2)):
+            new_event=copy.deepcopy(event)
+            new_event['iteration']=0
+            current_flow.append(new_event)
+        event = finished_flow.pop()
+    finished_flow.append(event)
     await entity_service.update_item(token=auth_header,
                                      entity_model="chat",
                                      entity_version=ENTITY_VERSION,
                                      technical_id=technical_id,
                                      entity=chat,
                                      meta={})
-    asyncio.create_task(process_dialogue_script(auth_header, technical_id))
     return jsonify({"message": "Answer received"}), 200
 
 
 async def _submit_answer_helper(technical_id, answer, auth_header, chat, user_file=None):
     if "questions_queue" not in chat:
         chat["questions_queue"] = {}
-
     if "new_questions" not in chat["questions_queue"]:
         chat["questions_queue"]["new_questions"] = []
     question_queue = chat["questions_queue"]["new_questions"]
@@ -577,39 +476,40 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat, user_fi
                          "iteration": 0,
                          "max_iteration": 0
                          }
+    question_queue.append(wait_notification)
 
     async with chat_lock:
-        stack = chat["chat_flow"]["current_flow"]
+        current_stack = chat["chat_flow"]["current_flow"]
         finished_stack = chat["chat_flow"].get("finished_flow", [])
-        if not stack:
+        if not current_stack:
             return jsonify({"message": "Finished"}), 200
-        question_queue.append(wait_notification)
-        next_event = stack[-1]
-        while next_event.get("notification"):
-            wait_notification = stack.pop()
-            question_queue.append(wait_notification)
-            next_event = stack[-1]
+        #question_queue.append(wait_notification)
         if not finished_stack[-1].get("question"):
             retry_notification = {"notification": DESIGN_IN_PROGRESS_WARNING}
             question_queue.append(retry_notification)
             return jsonify({
                 "message": DESIGN_IN_PROGRESS_WARNING}), 400
-        if answer == PUSH_NOTIFICATION:
-            next_event["answer"] = clean_formatting(
-                await read_file(get_project_file_name(chat['chat_id'], next_event["file_name"])))
-        elif answer == APPROVE:
-            if finished_stack[-1].get("question") and not finished_stack[-1].get("approve"):
-                retry_notification = {"notification": APPROVE_WARNING}
-                question_queue.append(retry_notification)
-                return jsonify({
-                    "message": APPROVE_WARNING}), 400
+        if answer == APPROVE and finished_stack[-1].get("question") and not finished_stack[-1].get("approve"):
+            retry_notification = {"notification": APPROVE_WARNING}
+            question_queue.append(retry_notification)
+            return jsonify({
+                "message": APPROVE_WARNING}), 400
+        next_event = current_stack[-1]
+        while next_event.get("notification"):
+            next_event_notification = current_stack.pop()
+            question_queue.append(next_event_notification)
+            next_event = current_stack[-1]
+        # if answer == PUSH_NOTIFICATION:
+        #     next_event["answer"] = clean_formatting(
+        #         await read_file(get_project_file_name(chat['chat_id'], next_event["file_name"])))
+        if answer == APPROVE:
             next_event["max_iteration"] = -1
+            next_event["answer"] = APPROVE
         else:
             next_event["answer"] = clean_formatting(answer)
-    question_queue.append(wait_notification)
     if user_file:
         file_name = user_file.filename
-        folder_name = "user_files"
+        folder_name = USER_FILES_DIR_NAME
         await _save_file(chat_id=chat["chat_id"], _data=user_file, item=file_name, folder_name=folder_name)
         next_event["user_file"] = file_name
         next_event["user_file_processed"] = False
@@ -621,8 +521,25 @@ async def _submit_answer_helper(technical_id, answer, auth_header, chat, user_fi
                                      meta={})
     asyncio.create_task(process_dialogue_script(auth_header, technical_id))
     return jsonify({"message": "Answer received"}), 200
-    # await process_dialogue_script(auth_header, technical_id)
-    # return await poll_questions(auth_header, chat, question_queue, technical_id)
+
+
+async def poll_questions(auth_header, chat, questions_queue, technical_id):
+    try:
+        questions_to_user = []
+        while questions_queue:
+            _event = questions_queue.pop(0)
+            questions_to_user.append(_event)
+        if len(questions_to_user) > 0:
+            await entity_service.update_item(token=auth_header,
+                                             entity_model="chat",
+                                             entity_version=ENTITY_VERSION,
+                                             technical_id=technical_id,
+                                             entity=chat,
+                                             meta={})
+        return jsonify({"questions": questions_to_user}), 200
+    except Exception as e:
+        logger.exception(e)
+        return jsonify({"questions": []}), 200  # No Content
 
 
 if __name__ == '__main__':

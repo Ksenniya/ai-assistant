@@ -36,3 +36,7 @@ MAX_ITERATION = int(os.getenv("MAX_ITERATION"))
 NUM_MOCK_ARR_ITEMS = int(os.getenv("NUM_MOCK_ARR_ITEMS"))
 REPOSITORY_NAME = os.getenv("REPOSITORY_URL").split('/')[-1].replace('.git', '')
 CHAT_REPOSITORY = os.getenv("CHAT_REPOSITORY", "local")
+ENABLE_AUTH = os.getenv("ENABLE_AUTH", "true").lower() == "true"
+MAX_TEXT_SIZE = 50 * 1024 #limit text size to 50KB
+MAX_FILE_SIZE = 500 * 1024 #limit file size to 500KB
+USER_FILES_DIR_NAME = "entity/user_files"

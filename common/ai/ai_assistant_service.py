@@ -1,7 +1,8 @@
 import json
 import logging
 
-from common.config.config import CYODA_AI_URL, MOCK_AI, CYODA_AI_API, WORKFLOW_AI_API, CONNECTION_AI_API, RANDOM_AI_API
+from common.config.config import CYODA_AI_URL, MOCK_AI, CYODA_AI_API, WORKFLOW_AI_API, CONNECTION_AI_API, RANDOM_AI_API, \
+    MAX_TEXT_SIZE, MAX_FILE_SIZE, USER_FILES_DIR_NAME
 from common.util.utils import parse_json, validate_result, send_post_request, ValidationErrorException, \
     get_project_file_name, read_file_object
 
@@ -54,31 +55,36 @@ class AiAssistantService:
         return resp.get('message')
 
     async def ai_chat(self, token, chat_id, ai_endpoint, ai_question, user_file=None):
-        if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
-            return {"error": "Answer size exceeds 1MB limit"}
-        if MOCK_AI=="true":
-            return {"entity": "some random text"}
-        if ai_endpoint == CYODA_AI_API:
-            resp = await self.chat_cyoda(token=token, chat_id=chat_id, ai_question=ai_question, user_file=user_file)
-        elif ai_endpoint == WORKFLOW_AI_API:
-            resp = await self.chat_workflow(token=token, chat_id=chat_id, ai_question=ai_question)
-        elif ai_endpoint == CONNECTION_AI_API:
-            resp = await self.chat_connection(token=token, chat_id=chat_id, ai_question=ai_question)
-        elif ai_endpoint == RANDOM_AI_API:
-            resp = await self.chat_random(token=token, chat_id=chat_id, ai_question=ai_question, user_file=user_file)
-        else:
-            return {"error": "Invalid endpoint"}
-        add_to_dataset(ai_endpoint=ai_endpoint, ai_question=ai_question, chat_id=chat_id, answer=resp)
-        return resp
+        try:
+            if ai_question and len(str(ai_question).encode('utf-8')) > MAX_TEXT_SIZE:
+                logger.error(f"Answer size exceeds {MAX_TEXT_SIZE} limit")
+                return {"error": f"Answer size exceeds {MAX_TEXT_SIZE} limit"}
+            if MOCK_AI=="true":
+                return {"entity": "some random text"}
+            if ai_endpoint == CYODA_AI_API:
+                resp = await self.chat_cyoda(token=token, chat_id=chat_id, ai_question=ai_question, user_file=user_file)
+            elif ai_endpoint == WORKFLOW_AI_API:
+                resp = await self.chat_workflow(token=token, chat_id=chat_id, ai_question=ai_question)
+            elif ai_endpoint == CONNECTION_AI_API:
+                resp = await self.chat_connection(token=token, chat_id=chat_id, ai_question=ai_question)
+            elif ai_endpoint == RANDOM_AI_API:
+                resp = await self.chat_random(token=token, chat_id=chat_id, ai_question=ai_question, user_file=user_file)
+            else:
+                return {"error": "Invalid endpoint"}
+            add_to_dataset(ai_endpoint=ai_endpoint, ai_question=ai_question, chat_id=chat_id, answer=resp)
+            return resp
+        except Exception as e:
+            logger.exception(e)
+            return {"error": "Error while AI processing"}
 
     async def chat_cyoda(self, token, chat_id, ai_question, user_file=None):
-        if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
-            return {"error": "Answer size exceeds 1MB limit"}
-
+        if ai_question and len(str(ai_question).encode('utf-8')) > MAX_TEXT_SIZE:
+            logger.error(f"Answer size exceeds {MAX_TEXT_SIZE} limit")
+            return {"error": f"Answer size exceeds {MAX_TEXT_SIZE} limit"}
         if user_file:
             if isinstance(user_file, str):
-                file_path = get_project_file_name(chat_id, user_file, folder_name="user_files")
-                user_file = read_file_object(file_path)
+                file_path = get_project_file_name(chat_id, user_file, folder_name=USER_FILES_DIR_NAME)
+                user_file = await read_file_object(file_path)
 
             data = {"chat_id": f"{chat_id}", "question": f"{ai_question}"}
             resp = await send_post_request(token, CYODA_AI_URL, "%s/chat-file" % API_V_CYODA_, data, user_file=user_file)
@@ -90,7 +96,8 @@ class AiAssistantService:
 
 
     async def chat_workflow(self, token, chat_id, ai_question):
-        if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
+        if ai_question and len(str(ai_question).encode('utf-8')) > MAX_TEXT_SIZE:
+            logger.error(f"Answer size exceeds {MAX_TEXT_SIZE} limit")
             return {"error": "Answer size exceeds 1MB limit"}
         data = json.dumps({
             "question": f"{ai_question}",
@@ -146,8 +153,9 @@ class AiAssistantService:
 
 
     async def chat_connection(self, token, chat_id, ai_question):
-        if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
-            return {"error": "Answer size exceeds 1MB limit"}
+        if ai_question and len(str(ai_question).encode('utf-8')) > MAX_TEXT_SIZE:
+            logger.error(f"Answer size exceeds {MAX_TEXT_SIZE} limit")
+            return {"error": f"Answer size exceeds {MAX_TEXT_SIZE} limit"}
         data = json.dumps({
             "question": f"{ai_question}",
             "return_object": "import-connections",
@@ -158,13 +166,14 @@ class AiAssistantService:
 
 
     async def chat_random(self, token, chat_id, ai_question, user_file=None):
-        if ai_question and len(str(ai_question).encode('utf-8')) > 1 * 1024 * 1024:
-            return {"error": "Answer size exceeds 1MB limit"}
+        if ai_question and len(str(ai_question).encode('utf-8')) > MAX_TEXT_SIZE:
+            logger.error(f"Answer size exceeds {MAX_TEXT_SIZE} limit")
+            return {"error": f"Answer size exceeds {MAX_TEXT_SIZE} limit"}
 
         if user_file:
             if isinstance(user_file, str):
-                file_path = get_project_file_name(chat_id, user_file, folder_name="user_files")
-                user_file = read_file_object(file_path)
+                file_path = get_project_file_name(chat_id, user_file, folder_name=USER_FILES_DIR_NAME)
+                user_file = await read_file_object(file_path)
             data = {
             "question": f"{ai_question}",
             "return_object": "random",

@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import glob
 import json
 import logging
@@ -10,7 +11,7 @@ import black
 from common.config.config import MOCK_AI, VALIDATION_MAX_RETRIES, PROJECT_DIR, REPOSITORY_NAME, CLONE_REPO, \
     CYODA_AI_API, REPOSITORY_URL
 from common.config.enums import TextType
-from common.util.utils import parse_json, get_project_file_name, read_file
+from common.util.utils import parse_json, get_project_file_name, read_file, format_json_if_needed
 from entity.chat.data.data import PUSHED_CHANGES_NOTIFICATION
 from logic.init import ai_service
 
@@ -18,8 +19,8 @@ from logic.init import ai_service
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-if MOCK_AI== "true":
-    #generate_mock_data()
+if MOCK_AI == "true":
+    # generate_mock_data()
     current_dir = os.path.dirname(os.path.abspath(__file__))
     current_dir = os.path.dirname(current_dir)
     # Build the file path
@@ -46,19 +47,20 @@ def _sort_entities(entity):
 
 
 async def _get_valid_result(_data, schema, token, ai_endpoint, chat_id):
-    if MOCK_AI=="true" and not isinstance(_data, dict):
+    if MOCK_AI == "true" and not isinstance(_data, dict):
         return _data
     result = await ai_service.validate_and_parse_json(token=token,
-                                              ai_endpoint=ai_endpoint,
-                                              chat_id=chat_id,
-                                              data=_data,
-                                              schema=schema,
-                                              max_retries=VALIDATION_MAX_RETRIES)
+                                                      ai_endpoint=ai_endpoint,
+                                                      chat_id=chat_id,
+                                                      data=_data,
+                                                      schema=schema,
+                                                      max_retries=VALIDATION_MAX_RETRIES)
     return result
 
 
 async def run_chat(chat, _event, token, ai_endpoint, chat_id, additional_prompt=None):
-    event_prompt, prompt = build_prompt(_event, chat) if not additional_prompt else ({"prompt": additional_prompt}, additional_prompt)
+    event_prompt, prompt = build_prompt(_event, chat) if not additional_prompt else (
+        {"prompt": additional_prompt}, additional_prompt)
     user_file_name = None
     if _event.get("user_file") and _event.get("user_file_processed") is False:
         user_file_name = _event.get("user_file")
@@ -75,10 +77,10 @@ async def run_chat(chat, _event, token, ai_endpoint, chat_id, additional_prompt=
     if event_prompt.get("schema"):
         try:
             result = await _get_valid_result(_data=result,
-                                     schema=event_prompt["schema"],
-                                     token=token,
-                                     ai_endpoint=ai_endpoint,
-                                     chat_id=chat_id)
+                                             schema=event_prompt["schema"],
+                                             token=token,
+                                             ai_endpoint=ai_endpoint,
+                                             chat_id=chat_id)
         except Exception as e:
             return {"success": "false", "error": str(e)}
     return result
@@ -95,6 +97,7 @@ def build_prompt(_event, chat):
     prompt = f'{prompt}. Use this json schema http://json-schema.org/draft-07/schema# to understand how to structure your answer: {event_prompt.get("schema", "")}. It will be validated against this schema. Return only json (python dictionary)' if event_prompt.get(
         "schema") else prompt
     return event_prompt, prompt
+
 
 def _enrich_prompt_with_context(_event, chat, event_prompt):
     prompt_text = event_prompt.get("text", "")
@@ -115,9 +118,10 @@ def _enrich_prompt_with_context(_event, chat, event_prompt):
 
 async def _get_chat_response(prompt, token, ai_endpoint, chat_id, user_file=None):
     """Get chat response either from the AI service or mock entity."""
-    if MOCK_AI=="true":
+    if MOCK_AI == "true":
         return _mock_ai(prompt)
-    resp = await ai_service.ai_chat(token=token, ai_endpoint=ai_endpoint, chat_id=chat_id, ai_question=prompt, user_file=user_file)
+    resp = await ai_service.ai_chat(token=token, ai_endpoint=ai_endpoint, chat_id=chat_id, ai_question=prompt,
+                                    user_file=user_file)
     return resp
 
 
@@ -125,27 +129,29 @@ def _mock_ai(prompt_text):
     return json_mock_data.get(prompt_text[:15], json.dumps({"entity": "some random text"}))
 
 
-def get_event_template(question, notification, answer, prompt, event):
+def get_event_template(event, question='', notification='', answer='', prompt=None, file_name=None, editable=False):
     # Predefined keys for the final JSON structure
     final_json = {
         "question": question,  # Sets the provided question
-        "prompt": prompt,  # Sets the provided prompt
+        "prompt": prompt if prompt else {},  # Sets the provided prompt
         "notification": notification,
-        "answer": answer,  # Initially no answer
+        "answer": '',  # Initially no answer
         "function": event.get('prompt', {}).get('function', {}),  # Placeholder for function
         "index": event.get('index', 0),  # Default index
         "iteration": event.get('iteration', 0),  # Initial iteration count
         "max_iteration": event.get('max_iteration', 0),
         "data": event.get('data', {}),
         "entity": event.get('entity', {}),
-        "file_name": event.get('file_name', ''),
+        "file_name": file_name if file_name else event.get('file_name', ''),
         "context": event.get('context', {}),
-        "approve": True
+        "approve": True,
+        "editable": editable
     }
+    exclusion_values = ['stack']  # Values to be excluded from the final JSON
 
     # Iterate through additional key-value pairs in the event object
     for key, value in event.items():
-        if key not in final_json:  # Only add key-value pairs not already in final_json
+        if key not in final_json and key not in exclusion_values:  # Only add key-value pairs not already in final_json
             final_json[key] = value
 
     return final_json
@@ -170,7 +176,8 @@ async def _save_file(chat_id, _data, item, folder_name=None) -> str:
             _data.seek(0)  # Ensure we're at the beginning of the file
             write_mode = 'wb'  # Assume binary mode for file-like objects
             async with aiofiles.open(file_path, write_mode) as output:
-                await output.write(await _data.read())
+                file_data = _data.read()  # Read the data directly, no need to await
+                await output.write(file_data)  # Now you can await the write operation
         else:
             # Process and save as text or binary
             output_data = _process_data(_data)
@@ -215,6 +222,7 @@ def _format_code(code):
     except Exception as e:
         print(f"Error formatting code: {e}")
         return code  # Return the original code if formatting fails
+
 
 def test_format_code():
     # Test code to format
@@ -262,21 +270,20 @@ def _process_data(_data):
     return json.dumps(_data, indent=4)
 
 
-
-
 async def _export_workflow_to_cyoda_ai(token, chat_id, _data):
-    if MOCK_AI=="true":
+    if MOCK_AI == "true":
         return
     if _data.get("transitions"):
         _data.get("transitions")[0]["start_state"] = "None"
 
-    await ai_service.export_workflow_to_cyoda_ai(token=token, chat_id=chat_id, data = _data)
+    await ai_service.export_workflow_to_cyoda_ai(token=token, chat_id=chat_id, data=_data)
 
-async def git_pull(chat_id):
+
+async def git_pull(chat_id, merge_strategy="recursive"):
     clone_dir = f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}"
 
     try:
-        # Start the `git checkout` command asynchronously with the --git-dir and --work-tree options
+        # Start the `git checkout` command asynchronously
         checkout_process = await asyncio.create_subprocess_exec(
             'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
             'checkout', str(chat_id),
@@ -289,24 +296,63 @@ async def git_pull(chat_id):
             logger.error(f"Error during git checkout: {stderr.decode()}")
             return
 
-        # Now, run the `git pull` command asynchronously with the --git-dir and --work-tree options
-        pull_process = await asyncio.create_subprocess_exec(
+        # Fetch latest changes from remote (without merging them yet)
+        fetch_process = await asyncio.create_subprocess_exec(
             'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
-            'pull', 'origin', str(chat_id),
+            'fetch', 'origin',
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        stdout, stderr = await pull_process.communicate()
+        fetch_stdout, fetch_stderr = await fetch_process.communicate()
 
-        if pull_process.returncode != 0:
-            logger.error(f"Error during git pull: {stderr.decode()}")
+        if fetch_process.returncode != 0:
+            logger.error(f"Error during git fetch: {fetch_stderr.decode()}")
             return
 
-        logger.info(f"Git pull successful: {stdout.decode()}")
+        # Compare the local branch with its remote counterpart explicitly
+        diff_process = await asyncio.create_subprocess_exec(
+            'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
+            'diff', f"origin/{str(chat_id)}", str(chat_id),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        diff_stdout, diff_stderr = await diff_process.communicate()
+
+        if diff_process.returncode != 0:
+            logger.error(f"Error during git diff: {diff_stderr.decode()}")
+            return
+
+        # Capture the full diff result before pull
+        diff_result_before_pull = diff_stdout.decode()
+        logger.info(f"Git diff (before pull): {diff_result_before_pull}")
+
+        # If no diff, skip the pull
+        if not diff_result_before_pull.strip():
+            logger.info("No changes to pull, skipping pull.")
+            return diff_result_before_pull  # Just return the diff with no changes
+
+        # Now, run the `git pull` command asynchronously with the specified merge strategy
+        pull_process = await asyncio.create_subprocess_exec(
+            'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
+            'pull', '--strategy', merge_strategy, '--strategy-option=theirs', 'origin', str(chat_id),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        pull_stdout, pull_stderr = await pull_process.communicate()
+
+        if pull_process.returncode != 0:
+            logger.error(f"Error during git pull: {pull_stderr.decode()}")
+            return
+
+        logger.info(f"Git pull successful: {pull_stdout.decode()}")
+
+        # Return the full diff before pull as the result
+        return diff_result_before_pull
 
     except Exception as e:
         logger.error(f"Unexpected error during git pull: {e}")
         logger.exception(e)
+
 
 async def _git_push(chat_id, file_paths: list, commit_message: str):
     await git_pull(chat_id=chat_id)
@@ -370,27 +416,31 @@ async def _git_push(chat_id, file_paths: list, commit_message: str):
         logger.exception(e)
 
 
-async def _send_notification(chat, event, notification_text):
+async def _send_notification(chat, event, notification_text, file_name=None, editable=False):
     stack = chat["chat_flow"]["current_flow"]
     notification_event = get_event_template(notification=notification_text,
-                                            event = event,
+                                            event=event,
                                             question='',
                                             answer='',
-                                            prompt={})
+                                            prompt={},
+                                            file_name=file_name,
+                                            editable=editable)
     stack.append(notification_event)
     return stack
+
 
 async def _send_notification_with_file(chat, event, notification_text, file_name, editable):
     stack = chat["chat_flow"]["current_flow"]
     notification_event = get_event_template(notification=notification_text,
-                                            event = event,
+                                            event=event,
                                             question='',
                                             answer='',
-                                            prompt={})
-    notification_event['file_name']=file_name
-    notification_event['editable']=editable
+                                            prompt={},
+                                            file_name=file_name,
+                                            editable=editable)
     stack.append(notification_event)
     return stack
+
 
 async def _build_context_from_project_files(chat, files, excluded_files):
     contents = []
@@ -433,13 +483,17 @@ async def save_result_to_file(chat, _event, _data):
     file_name = _event.get("file_name")
     if file_name:
         await _save_file(chat_id=chat["chat_id"], _data=_data, item=file_name)
-        notification_text = PUSHED_CHANGES_NOTIFICATION.format(file_name=file_name, repository_url=REPOSITORY_URL, chat_id=chat["chat_id"])
-        await _send_notification(chat=chat, event=_event, notification_text=notification_text)
+        notification_text = PUSHED_CHANGES_NOTIFICATION.format(file_name=file_name, repository_url=REPOSITORY_URL,
+                                                               chat_id=chat["chat_id"])
+        await _send_notification(chat=chat, event=_event, notification_text=notification_text, file_name=file_name,
+                                 editable=True)
+
 
 async def generate_data_ingestion_code_for_entity(_event, chat, entity, files_notifications, target_dir, token):
     try:
         # Fetch resources
-        code_file_name, doc_file_text, entity_file_text, entity_name = await _get_resources(entity, files_notifications, target_dir)
+        code_file_name, doc_file_text, entity_file_text, entity_name = await _get_resources(entity, files_notifications,
+                                                                                            target_dir)
         ai_question = _event.get("function", {}).get("prompts", {}).get(entity.get("entity_type", ""), {}).get("text",
                                                                                                                "").format(
             doc=doc_file_text,
@@ -447,7 +501,8 @@ async def generate_data_ingestion_code_for_entity(_event, chat, entity, files_no
             entity_name=entity_name
         )
         # Prepare AI question
-        await generate_file_contents(_event=_event, chat=chat, file_name = code_file_name, ai_question=ai_question, token = token, text_type=TextType.PYTHON)
+        await generate_file_contents(_event=_event, chat=chat, file_name=code_file_name, ai_question=ai_question,
+                                     token=token, text_type=TextType.PYTHON)
 
     except KeyError as e:
         logger.error(f"KeyError: Missing expected key: {e} for entity {entity.get('entity_name')}")
@@ -459,7 +514,6 @@ async def generate_data_ingestion_code_for_entity(_event, chat, entity, files_no
 
 async def generate_file_contents(_event, chat, file_name, ai_question,
                                  token, text_type: TextType):
-
     # Generate code from AI
     generated_text = await ai_service.ai_chat(
         token=token,
@@ -484,7 +538,7 @@ async def generate_file_contents(_event, chat, file_name, ai_question,
     notification_text = PUSHED_CHANGES_NOTIFICATION.format(file_name=file_name, repository_url=REPOSITORY_URL,
                                                            chat_id=chat["chat_id"])
     await _send_notification(chat=chat, event=_event, notification_text=notification_text)
-    notification_text =  f"""{REPOSITORY_URL}/tree/{chat['chat_id']}/{file_name}
+    notification_text = f"""{REPOSITORY_URL}/tree/{chat['chat_id']}/{file_name}
 
 {generated_text}"""
     await _send_notification_with_file(
@@ -500,14 +554,17 @@ async def generate_file_contents(_event, chat, file_name, ai_question,
 def get_file_name(template, entity_name):
     return template.format(entity_name=entity_name)
 
+
 # Helper function to construct file paths
 def get_file_path(target_dir, file_name):
     return os.path.join(target_dir, file_name)
+
 
 # Async function to read files concurrently
 async def read_files_concurrently(file_paths):
     file_contents = await asyncio.gather(*[read_file(file_path) for file_path in file_paths])
     return file_contents
+
 
 # Main function for getting resources
 async def _get_resources(entity, files_notifications, target_dir):
@@ -538,10 +595,11 @@ async def _get_resources(entity, files_notifications, target_dir):
     # Return the results in the desired order
     return (
         file_names["code"],  # Code file name
-        file_contents[1],     # Doc file content
-        file_contents[2],     # Entity file content
-        entity_name           # Entity name
+        file_contents[1],  # Doc file content
+        file_contents[2],  # Entity file content
+        entity_name  # Entity name
     )
+
 
 def comment_out_non_code(text):
     if '```python' in text:
@@ -568,7 +626,6 @@ def comment_out_non_code(text):
         return "\n".join(commented_lines)
     else:
         return text
-
 
 
 def main():
@@ -626,6 +683,46 @@ if __name__ == "__main__":
 Please validate the provided code to ensure it meets your requirements.
 """
     print(comment_out_non_code(input))
+
+
+def _process_question(question):
+    if question.get("processed"):
+        return question
+    if question.get("question"):
+        question["question_key"] = question.get("question")
+        question = format_json_if_needed(question, "question")
+
+    if question.get("notification"):
+        question = format_json_if_needed(question, "notification")
+    if question.get("question") and question.get("ui_config"):
+        # Create a deep copy of the question object
+        new_question = copy.deepcopy(question)
+        result = []
+
+        # Iterating through display_keys in the ui_config
+        for key_object in new_question.get("ui_config", {}).get("display_keys", []):
+            # Extract the key from the key_object (the dictionary key)
+            if isinstance(key_object, dict):
+                for key, value in key_object.items():
+                    # Append the corresponding value from the "question" dictionary using the extracted key
+                    if key in new_question.get("question", {}):
+                        result.append(value)
+                        result.append(new_question.get("question").get(key))
+
+        # Combine the values into a single string
+        new_question["question"] = " ".join(str(item) for item in result)
+
+        return new_question
+    if question.get("question") and question.get("example_answers"):
+        question["question"] = f"""
+{question["question"]}
+
+***Example answers***:
+{'\n\n'.join([answer.strip() for answer in question.get("example_answers", [])])}
+"""
+    # Return the original question if conditions are not met
+    question["processed"] = True
+    return question
 
 
 if __name__ == "__main__":

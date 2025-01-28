@@ -17,7 +17,7 @@ from entity.chat.data.data import scheduler_stack, api_request_stack, workflow_s
     data_ingestion_stack, PUSHED_CHANGES_NOTIFICATION, BRANCH_READY_NOTIFICATION
 from entity.chat.workflow.helper_functions import _save_file, _sort_entities, _send_notification, \
     _build_context_from_project_files, run_chat, _send_notification_with_file, git_pull, \
-    generate_data_ingestion_code_for_entity, generate_file_contents
+    generate_data_ingestion_code_for_entity, generate_file_contents, save_result_to_file
 from logic.init import ai_service
 
 # Configure logging
@@ -101,7 +101,7 @@ async def add_design_stack(token, _event, chat) -> list:
 
 async def add_user_requirement(token, _event, chat):
     file_name = _event["file_name"]
-    ai_question = f"Please write a detailed summary of the user requirement. Include all the necessary details specified by the user."
+    ai_question = _event["function"]["prompt"]
     user_requirement = await ai_service.ai_chat(token=token, chat_id=chat["chat_id"], ai_endpoint=CYODA_AI_API,
                                                 ai_question=ai_question)
     await _save_file(chat_id=chat["chat_id"], _data=user_requirement, item=file_name)
@@ -319,6 +319,16 @@ async def finish_flow(token, _event, chat):
     #todo remove later
     await _save_file(chat_id=chat_id, _data=json.dumps(dataset.get(chat_id)), item=f"entity/dataset_{chat_id}.json")
     del dataset[chat_id]
+
+async def verify_cyoda_doc(token, _event, chat):
+
+    prd_doc_path = _event["function"]["files"]["prd_doc_path"]
+    json_doc_path = _event["function"]["files"]["json_doc_path"]
+    prd_doc = await read_file(get_project_file_name(chat_id=chat['chat_id'], file_name=prd_doc_path))
+    json_doc = await read_file(get_project_file_name(chat_id=chat['chat_id'], file_name=json_doc_path))
+    _event["function"]["prompt"]["text"] = _event["function"]["prompt"]["text"].format(json_doc=json_doc, prd_doc=prd_doc)
+    result = await run_chat(chat=chat, _event=_event, token=token, ai_endpoint=CYODA_AI_API, chat_id=chat["chat_id"])
+    await save_result_to_file(chat=chat, _data=json.dumps(result), _event=_event)
 
 def main():
     if __name__ == "__main__":
