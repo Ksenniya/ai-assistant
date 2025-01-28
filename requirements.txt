@@ -13,3 +13,6 @@ requests==2.32.3
 python-dotenv==1.0.1
 
 black==24.10.0
+aiofiles==24.1.0
+aiohttp==3.11.11
+quart-rate-limiter==0.11.0

@@ -1,19 +1,14 @@
-import json
+import queue
 import threading
-import time
-from typing import List, Any, Optional
-
-import logging
-
+from typing import List
 from common.config.config import API_URL
 from common.repository.crud_repository import CrudRepository
 from common.util.utils import *
 
-logger = logging.getLogger('django')
+logger = logging.getLogger('quart')
 
 
 class CyodaRepository(CrudRepository):
-
     _instance = None
     _lock = threading.Lock()  # Lock for thread safety
 
@@ -28,66 +23,80 @@ class CyodaRepository(CrudRepository):
     def __init__(self):
         pass
 
-    def get_meta(self, token, entity_model, entity_version):
-        return {"token": token, "entity_model": entity_model, "entity_version": entity_version}
+    async def get_meta(self, token, entity_model, entity_version):
+        return {"token": token, "entity_model": entity_model, "entity_version": entity_version,  "update_transition": "update"}
 
-    def count(self, meta) -> int:
+    async def count(self, meta) -> int:
         pass
 
-    def delete_all(self, meta) -> None:
+    async def delete_all(self, meta) -> None:
         pass
 
-    def delete_all_entities(self, meta, entities: List[Any]) -> None:
+    async def delete_all_entities(self, meta, entities: List[Any]) -> None:
         pass
 
-    def delete_all_by_key(self, meta, keys: List[Any]) -> None:
+    async def delete_all_by_key(self, meta, keys: List[Any]) -> None:
         pass
 
-    def delete_by_key(self, meta, key: Any) -> None:
+    async def delete_by_key(self, meta, key: Any) -> None:
         pass
 
-    def exists_by_key(self, meta, key: Any) -> bool:
+    async def exists_by_key(self, meta, key: Any) -> bool:
         pass
 
-    def find_all(self, meta) -> List[Any]:
-        return self._get_all_entities(meta)
+    async def find_all(self, meta) -> List[Any]:
+        entities = await self._get_all_entities(meta)
+        return entities
 
-    def find_all_by_key(self, meta, keys: List[Any]) -> List[Any]:
-        return self._get_all_by_ids(meta, keys)
+    async def find_all_by_key(self, meta, keys: List[Any]) -> List[Any]:
+        ids = await self._get_all_by_ids(meta, keys)
+        return ids
 
-    def find_by_key(self, meta, key: Any) -> Optional[Any]:
-        return self._get_by_key(meta, key)
+    async def find_by_key(self, meta, key: Any) -> Optional[Any]:
+        res = await self._get_by_key(meta, key)
+        return res
 
-    def find_by_id(self, meta, uuid: Any) -> Optional[Any]:
-        return self._get_by_id(meta, uuid)
+    async def find_by_id(self, meta, _uuid: Any) -> Optional[Any]:
+        res = await self._get_by_id(meta, _uuid)
+        return res
 
-    def find_all_by_criteria(self, meta, criteria: Any) -> Optional[Any]:
-        resp = self._search_entities(meta, criteria)
-        if (resp['page']['totalElements'] == 0):
-            #resp = {'page': {'number': 0, 'size': 10, 'totalElements': 0, 'totalPages': 0}}
+    async def find_all_by_criteria(self, meta, criteria: Any) -> Optional[Any]:
+        try:
+            resp = await self._search_entities(meta, criteria)
+            if resp['page']['totalElements'] == 0:
+                # resp = {'page': {'number': 0, 'size': 10, 'totalElements': 0, 'totalPages': 0}}
+                return []
+            # resp = {'_embedded': {'objectNodes': [{'id': 'f04bce86-89a9-11b2-aa0c-169608d9bc9e', 'tree': {'email': '4126cf85-61b6-48ec-b7bc-89fc1999d9b9@q.q', 'name': 'test', 'role': 'Start-up', 'user_id': '1703b76f-8b2f-11ef-9910-40c2ba0ac9eb'}}]}, 'page': {'number': 0, 'size': 10, 'totalElements': 1, 'totalPages': 1}}
+            #entities = resp["_embedded"]["objectNodes"]
+            result_entities = await self._convert_to_entities(resp)
+            return result_entities
+        except Exception as e:
+            logger.exception(e)
             return []
-        #resp = {'_embedded': {'objectNodes': [{'id': 'f04bce86-89a9-11b2-aa0c-169608d9bc9e', 'tree': {'email': '4126cf85-61b6-48ec-b7bc-89fc1999d9b9@q.q', 'name': 'test', 'role': 'Start-up', 'user_id': '1703b76f-8b2f-11ef-9910-40c2ba0ac9eb'}}]}, 'page': {'number': 0, 'size': 10, 'totalElements': 1, 'totalPages': 1}}
-        resp = resp["_embedded"]["objectNodes"]
-        return resp
 
-    def save(self, meta, entity: Any) -> Any:
-        return self._save_new_entities(meta, [entity])
+    async def save(self, meta, entity: Any) -> Any:
+        res = await self._save_new_entities(meta, [entity])
+        return res[0]['entityIds'][0]
 
-    def save_all(self, meta, entities: List[Any]) -> bool:
-        return self._save_new_entities(meta, entities)
+    async def save_all(self, meta, entities: List[Any]) -> bool:
+        res = await self._save_new_entities(meta, entities)
+        return res[0]['entityIds'][0]
 
-    def update(self, meta, id, entity: Any) -> Any:
-        meta["technical_id"] = id
+    async def update(self, meta, _id, entity: Any) -> Any:
+        meta["technical_id"] = _id
         if entity is None:
-            return self._launch_transition(meta)
-        return self._update_entities(meta, [entity])
+            res = await self._launch_transition(meta)
+            return res
+        res = await self._update_entity(meta=meta, _id=_id, entity=entity)
+        return res['entityIds'][0]
 
-    def update_all(self, meta, entities: List[Any]) -> List[Any]:
-        return self._update_entities(meta, entities)
+    async def update_all(self, meta, entities: List[Any]) -> List[Any]:
+        res = await self._update_entities(meta, entities)
+        return res
 
-    def _search_entities(self, meta, condition):
+    async def _search_entities(self, meta, condition):
         # Create a snapshot search
-        snapshot_response = self._create_snapshot_search(
+        snapshot_response = await self._create_snapshot_search(
             token=meta["token"],
             model_name=meta["entity_model"],
             model_version=meta["entity_version"],
@@ -99,7 +108,7 @@ class CyodaRepository(CrudRepository):
             return None
 
         # Wait for the search to complete
-        status_response = self._wait_for_search_completion(
+        await self._wait_for_search_completion(
             token=meta["token"],
             snapshot_id=snapshot_id,
             timeout=60,  # Adjust timeout as needed
@@ -107,7 +116,7 @@ class CyodaRepository(CrudRepository):
         )
 
         # Retrieve search results
-        search_result = self._get_search_result(
+        search_result = await self._get_search_result(
             token=meta["token"],
             snapshot_id=snapshot_id,
             page_size=100,  # Adjust page size as needed
@@ -115,14 +124,13 @@ class CyodaRepository(CrudRepository):
         )
         return search_result
 
-    def _get_all_by_ids(self, meta, keys) -> List[Any]:
+    async def _get_all_by_ids(self, meta, keys) -> List[Any]:
         try:
-            entities = []
             for key in keys:
-                search_result = self._search_entities(meta, meta["condition"])
+                search_result = await self._search_entities(meta, meta["condition"])
                 if search_result.get('page').get('totalElements', 0) == 0:
                     return []
-                result_entities = self._convert_to_entities(search_result)
+                result_entities = await self._convert_to_entities(search_result)
             return result_entities
 
 
@@ -133,13 +141,13 @@ class CyodaRepository(CrudRepository):
 
         return None
 
-    def _get_by_key(self, meta, key) -> Optional[Any]:
+    async def _get_by_key(self, meta, key) -> Optional[Any]:
         try:
-            search_result = self._search_entities(meta, meta["condition"])
+            search_result = await self._search_entities(meta, meta["condition"])
             # Convert search results to CacheEntity
             if search_result.get('page').get('totalElements', 0) == 0:
                 return None
-            result_entities = self._convert_to_entities(search_result)
+            result_entities = await self._convert_to_entities(search_result)
             entity = result_entities[0]
             logger.info(f"Successfully retrieved CacheEntity for key '{key}'.")
             if entity is not None:
@@ -153,10 +161,13 @@ class CyodaRepository(CrudRepository):
 
         return None
 
-    def _save_new_entities(self, meta, entities: List[Any]) -> bool:
+
+    async def _save_new_entities(self, meta, entities: List[Any]) -> bool:
         try:
-            entities_data = json.dumps(entities)
-            resp = self._save_new_entity(
+
+            # Serialize the entity with the custom serializer
+            entities_data = json.dumps(entities, default=custom_serializer)
+            resp = await self._save_new_entity(
                 token=meta["token"],
                 model=meta["entity_model"],
                 version=meta["entity_version"],
@@ -167,19 +178,19 @@ class CyodaRepository(CrudRepository):
             logger.error(f"Exception occurred while saving entity: {e}")
             raise e
 
-    def delete(self, meta, entity: Any) -> None:
+    async def delete(self, meta, entity: Any) -> None:
         pass
 
-    def delete_by_id(self, meta, id: Any) -> None:
+    async def delete_by_id(self, meta, id: Any) -> None:
         pass
 
     @staticmethod
-    def _save_entity_schema(token, entity_name, version, data):
+    async def _save_entity_schema(token, entity_name, version, data):
         path = f"entity/JSON/TREE/{entity_name}/{version}"
 
         try:
-            response = send_post_request(token=token, api_url=API_URL, path=path, data=data)
-            if response.status_code == 200:
+            response = await send_post_request(token=token, api_url=API_URL, path=path, data=data)
+            if response:
                 logger.info(
                     f"Successfully saved schema for entity '{entity_name}' with version '{version}'. Response: {response}")
             else:
@@ -194,13 +205,13 @@ class CyodaRepository(CrudRepository):
             return {'error': str(e)}
 
     @staticmethod
-    def _lock_entity_schema(token, entity_name, version, data):
+    async def _lock_entity_schema(token, entity_name, version, data):
         path = f"treeNode/model/{entity_name}/{version}/lock"
 
         try:
-            response = send_put_request(token=token, api_url=API_URL, path=path, data=data)
+            response = await send_put_request(token=token, api_url=API_URL, path=path, data=data)
 
-            if response.status_code == 200:
+            if response:
                 logger.info(
                     f"Successfully locked schema for entity '{entity_name}' with version '{version}'. Response: {response}")
             else:
@@ -214,39 +225,37 @@ class CyodaRepository(CrudRepository):
             return {'error': str(e)}
 
     @staticmethod
-    def _model_exists(token, entity_name, version) -> bool:
+    async def _model_exists(token, entity_name, version) -> bool:
         export_model_path = f"treeNode/model/export/SIMPLE_VIEW/{entity_name}/{version}"
-        response = send_get_request(token, API_URL, export_model_path)
+        response = await send_get_request(token, API_URL, export_model_path)
 
-        if response.status_code == 200:
+        if response:
             return True
-        elif response.status_code == 404:
-            return False
         else:
-            raise Exception(f"Get: {response.status_code} {response.text}")
+            return False
 
     @staticmethod
-    def _get_model(token, entity_name, version):
+    async def _get_model(token, entity_name, version):
         export_model_url = f"treeNode/model/export/SIMPLE_VIEW/{entity_name}/{version}"
 
-        response = send_get_request(token, API_URL, export_model_url)
+        response = await send_get_request(token, API_URL, export_model_url)
 
-        if response.status_code == 200:
-            return response.json()
+        if response:
+            return response
         else:
-            raise Exception(f"Getting the model failed: {response.status_code} {response.text}")
+            raise Exception(f"Getting the model failed: {response}")
 
     @staticmethod
-    def _save_new_entity(token, model, version, data):
+    async def _save_new_entity(token, model, version, data):
         path = f"entity/JSON/TREE/{model}/{version}"
         logger.info(f"Saving new entity to path: {path}")
 
         try:
-            response = send_post_request(token=token, api_url=API_URL, path=path, data=data)
+            response = await send_post_request(token=token, api_url=API_URL, path=path, data=data)
 
-            if response.status_code == 200:
+            if response:
                 logger.info(f"Successfully saved new entity. Response: {response}")
-                return response.json()
+                return response
             else:
                 logger.error(f"Failed to save new entity. Response: {response}")
                 raise Exception(f"Failed to save new entity. Response: {response}")
@@ -256,41 +265,41 @@ class CyodaRepository(CrudRepository):
             raise e
 
     @staticmethod
-    def _delete_all_entities(token, model_name, model_version):
+    async def _delete_all_entities(token, model_name, model_version):
         delete_entities_url = f"entity/TREE/{model_name}/{model_version}"
 
-        response = send_delete_request(token, API_URL, delete_entities_url)
+        response = await send_delete_request(token, API_URL, delete_entities_url)
 
-        if response.status_code == 200:
-            return response.json()
+        if response:
+            return response
         else:
-            raise Exception(f"Deletion failed: {response.status_code} {response.text}")
+            raise Exception(f"Deletion failed: {response}")
 
     @staticmethod
-    def _create_snapshot_search(token, model_name, model_version, condition):
+    async def _create_snapshot_search(token, model_name, model_version, condition):
         search_url = f"treeNode/search/snapshot/{model_name}/{model_version}"
         logger.info(condition)
-        response = send_post_request(token, API_URL, search_url, data=json.dumps(condition))
-        if response.status_code == 200:
-            return response.json()
+        response = await send_post_request(token, API_URL, search_url, data=json.dumps(condition))
+        if response:
+            return response
         else:
-            raise Exception(f"Snapshot search trigger failed: {response.status_code} {response.text}")
+            raise Exception(f"Snapshot search trigger failed: {response}")
 
     @staticmethod
-    def _get_snapshot_status(token, snapshot_id):
+    async def _get_snapshot_status(token, snapshot_id):
         status_url = f"treeNode/search/snapshot/{snapshot_id}/status"
 
-        response = send_get_request(token, API_URL, status_url)
-        if response.status_code == 200:
-            return response.json()
+        response = await send_get_request(token, API_URL, status_url)
+        if response:
+            return response
         else:
-            raise Exception(f"Snapshot search trigger failed: {response.status_code} {response.text}")
+            raise Exception(f"Snapshot search trigger failed: {response}")
 
-    def _wait_for_search_completion(self, token, snapshot_id, timeout=5, interval=10):
+    async def _wait_for_search_completion(self, token, snapshot_id, timeout=5, interval=10):
         start_time = now()  # Record the start time
 
         while True:
-            status_response = self._get_snapshot_status(token, snapshot_id)
+            status_response = await self._get_snapshot_status(token, snapshot_id)
             status = status_response.get("snapshotStatus")
 
             # Check if the status is SUCCESSFUL or FAILED
@@ -307,7 +316,7 @@ class CyodaRepository(CrudRepository):
             time.sleep(interval / 1000)  # Wait for the given interval (msec) before checking again
 
     @staticmethod
-    def _get_search_result(token, snapshot_id, page_size, page_number):
+    async def _get_search_result(token, snapshot_id, page_size, page_number):
         result_url = f"treeNode/search/snapshot/{snapshot_id}"
 
         params = {
@@ -315,24 +324,19 @@ class CyodaRepository(CrudRepository):
             'pageNumber': f"{page_number}"
         }
 
-        response = send_get_request(token=token, api_url=API_URL, path=result_url)
+        response = await send_get_request(token=token, api_url=API_URL, path=result_url)
 
-        if response.status_code == 200:
-            return response.json()
+        if response:
+            return response
         else:
-            raise Exception(f"Get search result failed: {response.status_code} {response.text}")
+            raise Exception(f"Get search result failed: {response}")
 
     @staticmethod
-    def _update_entities(meta, entities: List[Any]) -> List[Any]:
+    async def _update_entities(meta, entities: List[Any]) -> List[Any]:
         path = "entity/JSON/TREE"
         payload = []
         for entity in entities:
-            entities_data = {
-                key: value for key, value in entity.to_dict().items()
-                if value is not None and key != "technical_id"
-            }
-
-            payload_json = json.dumps(entities_data)
+            payload_json = json.dumps(entity, default=custom_serializer)
 
             payload.append({
                 "id": meta.get("technical_id"),
@@ -340,34 +344,33 @@ class CyodaRepository(CrudRepository):
                 "payload": payload_json
             })
             data = json.dumps(payload)
-            response = send_put_request(meta["token"], API_URL, path, data=data)
-            if response.status_code == 200:
+            response = await send_put_request(meta["token"], API_URL, path, data=data)
+            if response:
                 return entities
             else:
-                raise Exception(f"Get search result failed: {response.status_code} {response.text}")
+                raise Exception(f"Get search result failed: {response}")
 
         return entities
 
     @staticmethod
-    def _update_entity(meta, entities: List[Any]) -> List[Any]:
+    async def _update_entity(meta, _id, entity: Any) -> List[Any]:
         path = "entity/JSON/TREE"
-        for entity in entities:
-            entities_data = {
-                key: value for key, value in entity.to_dict().items()
-                if value is not None and key != "technical_id"
-            }
-            payload_json = json.dumps(entities_data)
-            response = send_put_request(meta["token"], API_URL,
-                                        f"{path}/{entity.technical_id}/{meta["update_transition"]}", data=payload_json)
-            if response.status_code == 200:
-                return entities
-            else:
-                raise Exception(f"Get search result failed: {response.status_code} {response.text}")
 
-        return entities
+        # entities_data = {
+        #     key: value for key, value in entity.to_dict().items()
+        #     if value is not None and key != "technical_id"
+        # }
+        payload_json = json.dumps(entity, default=custom_serializer)
+        response = await send_put_request(meta["token"], API_URL,
+                                          f"{path}/{_id}/{meta["update_transition"]}",
+                                          data=payload_json)
+        if response:
+            return response
+        else:
+            raise Exception(f"Get search result failed: {response}")
 
     @staticmethod
-    def _convert_to_entities(data):
+    async def _convert_to_entities(data):
         # Check if totalElements is zero
         if data.get("page", {}).get("totalElements", 0) == 0:
             return None
@@ -385,19 +388,19 @@ class CyodaRepository(CrudRepository):
 
         return entities
 
-    def _get_by_id(self, meta, uuid):
-        path = f"entity/TREE/{uuid}"
-        response = send_get_request(meta["token"], API_URL, path=path)
-        logger.info(response.json())
+    async def _get_by_id(self, meta, _uuid):
+        path = f"entity/TREE/{_uuid}"
+        response = await send_get_request(meta["token"], API_URL, path=path)
+        logger.info(response)
+        return response.get('tree')
+
+    async def _get_all_entities(self, meta):
+        path = f"entity/TREE/{meta["entity_model"]}/{meta["entity_version"]}"
+        response = await send_get_request(meta["token"], API_URL, path=path)
+        logger.info(response)
         return response
 
-    def _get_all_entities(self, meta):
-        path = f"entity/TREE/{meta["entity_model"]}/{meta["entity_version"]}"
-        response = send_get_request(meta["token"], API_URL, path=path)
-        logger.info(response.json())
-        return response.json()
-
-    def _launch_transition(self, meta):
+    async def _launch_transition(self, meta):
         path = f"/platform-api/entity/transition?entityId={meta["technical_id"]}&entityClass=com.cyoda.tdb.model.treenode.TreeNodeEntity&transitionName={meta["update_transition"]}"
-        response = send_put_request(meta["token"], API_URL, path)
-        return response.json()
+        response = await send_put_request(meta["token"], API_URL, path)
+        return response

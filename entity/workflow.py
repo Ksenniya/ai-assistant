@@ -1,3 +1,4 @@
+import copy
 import glob
 import importlib
 import inspect
@@ -5,7 +6,6 @@ import logging
 import os
 
 import entity
-from logic.init import cyoda_token
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 process_dispatch = {}
@@ -36,19 +36,23 @@ def find_and_import_workflows():
 # Run the function to populate process_dispatch
 find_and_import_workflows()
 
-def dispatch_function(token, event, chat):
-    if event["function"]["name"] in process_dispatch:
-        response = process_dispatch[event["function"]["name"]](token, event, chat)
-    else:
-        raise ValueError(f"Unknown processing step: {event["function"]["name"]}")
-    return response
+async def dispatch_function(token, event, chat):
+    try:
+        if event["function"]["name"] in process_dispatch:
+            response = await process_dispatch[event["function"]["name"]](token, copy.deepcopy(event), chat)
+        else:
+            raise ValueError(f"Unknown processing step: {event["function"]["name"]}")
+        return response
+    except Exception as e:
+        logger.exception(e)
+        logger.info(f"Error processing event: {e}")
 
-def process_event(token, data, processor_name):
+async def process_event(token, data, processor_name):
     meta = {"token": token, "entity_model": "ENTITY_PROCESSED_NAME", "entity_version": "ENTITY_VERSION"}
     payload_data = data['payload']['data']
     if processor_name in process_dispatch:
         try:
-            response = process_dispatch[processor_name](meta, payload_data)
+            response = await process_dispatch[processor_name](meta, payload_data)
         except Exception as e:
             logger.info(f"Error processing event: {e}")
             raise

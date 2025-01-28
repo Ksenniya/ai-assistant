@@ -1,9 +1,9 @@
 {
   "name": "specify_name_that_describes_the_workflow",
   "description": "describe_the_workflow",
-  "workflow_criterias": {
-    "externalized_criterias": [],
-    "condition_criterias": []
+  "workflow_criteria": {
+    "externalized_criteria": [],
+    "condition_criteria": []
   },
   "transitions": [
     {
@@ -14,9 +14,9 @@
       "end_state": "Happy_message_sparked",
       "end_state_description": "A happy message has been sparked",
       "automated": true,
-      "transition_criterias": {
-        "externalized_criterias": [],
-        "condition_criterias": [
+      "transition_criteria": {
+        "externalized_criteria": [],
+        "condition_criteria": [
           {
             "name": "isSparkable",
             "description": "checks whether a message can spark",
@@ -63,9 +63,9 @@
             "sync_process": true,
             "new_transaction_for_async": false,
             "none_transactional_for_async": false,
-            "processor_criterias": {
-              "externalized_criterias": [],
-              "condition_criterias": []
+            "processor_criteria": {
+              "externalized_criteria": [],
+              "condition_criteria": []
             }
           }
         ],
@@ -80,8 +80,8 @@
       "end_state": "Message_sent",
       "end_state_description": "The happy message has been sent",
       "automated": false,
-      "transition_criterias": {
-        "externalized_criterias": [
+      "transition_criteria": {
+        "externalized_criteria": [
           {
             "name": "isEmailSendingPossible",
             "description": "checks whether an email can be sent at the moment",
@@ -91,7 +91,7 @@
             "retry_policy": "FIXED"
           }
         ],
-        "condition_criterias": []
+        "condition_criteria": []
       },
       "processes": {
         "schedule_transition_processors": [],
@@ -106,9 +106,9 @@
             "sync_process": false,
             "new_transaction_for_async": false,
             "none_transactional_for_async": false,
-            "processor_criterias": {
-              "externalized_criterias": [],
-              "condition_criterias": []
+            "processor_criteria": {
+              "externalized_criteria": [],
+              "condition_criteria": []
             }
           }
         ]

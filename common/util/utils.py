@@ -1,18 +1,21 @@
-import os
 import logging
-import subprocess
+import os
+import queue
 import time
 import re
-import requests
-from typing import Optional
-import uuid
-import json
-import jsonschema
-from jsonschema import validate
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from common.config.config import PROJECT_DIR, REPOSITORY_NAME
+import aiofiles
+from typing import Optional, Any
+import uuid
+import json
+
+import aiohttp
+import jsonschema
+from jsonschema import validate
+
+from common.config.config import PROJECT_DIR, REPOSITORY_NAME, MAX_FILE_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -47,19 +50,110 @@ def _normalize_boolean_json(json_data):
     return json_data
 
 
-def parse_json(result: str) -> str:
-    if isinstance(result, dict):
-        return json.dumps(result)
-    if result.startswith("```"):
-        return "\n".join(result.split("\n")[1:-1])
-    if not result.startswith("{"):
-        start_index = result.find("```json")
-        if start_index != -1:
-            start_index += len("```json\n")
-            end_index = result.find("```", start_index)
-            return result[start_index:end_index].strip()
-    return result
+def remove_js_style_comments_outside_strings(code: str) -> str:
+    """
+    Remove //... comments ONLY if they appear outside of a quoted string.
 
+    This prevents 'https://...' in a JSON string from being mistaken as a comment.
+    """
+
+    result = []
+    in_string = False
+    escape_char = False
+    i = 0
+    length = len(code)
+
+    while i < length:
+        char = code[i]
+
+        # Check for string toggle (double quotes only for JSON)
+        if char == '"' and not escape_char:
+            # Toggle string on/off
+            in_string = not in_string
+            result.append(char)
+        elif not in_string:
+            # We are outside a string, so check if we have //
+            if char == '/' and i + 1 < length and code[i + 1] == '/':
+                # Skip rest of the line
+                # Move i to the next newline or end of text
+                i += 2
+                while i < length and code[i] not in ('\n', '\r'):
+                    i += 1
+                # Do NOT append the '//...' to result
+                # We effectively remove it
+                continue
+            else:
+                # Normal character outside string
+                result.append(char)
+        else:
+            # Inside a string
+            result.append(char)
+
+        # Handle escape chars inside strings
+        if char == '\\' and in_string and not escape_char:
+            # Next character is escaped
+            escape_char = True
+        else:
+            escape_char = False
+
+        i += 1
+
+    return ''.join(result)
+
+
+def parse_json(text: str) -> str:
+    """
+    1. Find the first occurrence of '{' or '[' and the matching last occurrence
+       of '}' or ']', respectively (very naive bracket slicing).
+    2. Remove only real JS-style comments (// ...) outside of strings.
+    3. Attempt to parse the substring as JSON.
+    4. Return prettified JSON if successful, otherwise the original text.
+    """
+
+    original_text = text
+    text = text.strip()
+
+    # Find earliest occurrences
+    first_curly = text.find('{')
+    first_square = text.find('[')
+
+    if first_curly == -1 and first_square == -1:
+        # No bracket found
+        return original_text
+
+    # Decide which bracket to use based on which occurs first
+    if first_curly == -1:
+        start_index = first_square
+        close_bracket = ']'
+    elif first_square == -1:
+        start_index = first_curly
+        close_bracket = '}'
+    else:
+        if first_curly < first_square:
+            start_index = first_curly
+            close_bracket = '}'
+        else:
+            start_index = first_square
+            close_bracket = ']'
+
+    # Find the last occurrence of that bracket
+    end_index = text.rfind(close_bracket)
+    if end_index == -1 or end_index < start_index:
+        return original_text
+
+    # Extract the substring
+    json_substring = text[start_index:end_index + 1]
+
+    # Remove only actual JS-style comments outside strings
+    json_substring = remove_js_style_comments_outside_strings(json_substring)
+
+    # Attempt to parse the cleaned substring
+    try:
+        parsed = json.loads(json_substring)
+        return json.dumps(parsed, ensure_ascii=False, indent=2)
+    except json.JSONDecodeError:
+        # If it fails, just return the original
+        return original_text
 
 def parse_workflow_json(result: str) -> str:
     # Function to replace single quotes with double quotes and handle True/False
@@ -108,11 +202,123 @@ def parse_workflow_json(result: str) -> str:
     # Return result as-is if it's neither a dictionary nor a valid string format
     return result
 
-def validate_result(data: str, file_path: str, schema: Optional[str]) -> str:
+
+def main():
+    # Example input
+    input_data = """
+Here is an example JSON data structure for the entity `data_analysis_job`, reflecting the business logic based on the user's requirement to analyze London Houses data using pandas:
+
+```json
+{
+  "job_id": "data_analysis_job_001",
+  "job_name": "Analyze London Houses Data",
+  "job_status": "completed",
+  "start_time": "2023-10-01T10:05:00Z",
+  "end_time": "2023-10-01T10:30:00Z",
+  "input_data": {
+    "raw_data_entity_id": "raw_data_entity_001",
+    "data_source": "https://raw.githubusercontent.com/Cyoda-platform/cyoda-ai/refs/heads/ai-2.x/data/test-inputs/v1/connections/london_houses.csv"
+  },
+  "analysis_parameters": {
+    "metrics": [
+      {
+        "name": "average_price",
+        "description": "Calculate the average price of the houses.",
+        "value": 1371200
+      },
+      {
+        "name": "median_square_meters",
+        "description": "Find the median square meters of the houses.",
+        "value": 168
+      }
+    ],
+    "filters": {
+      "neighborhood": ["Notting Hill", "Westminster"],
+      "min_bedrooms": 2,
+      "max_bathrooms": 3
+    }
+  },
+  "analysis_results": {
+    "total_houses_analyzed": 3,
+    "houses_with_garden": 2,
+    "houses_with_parking": 1,
+    "price_distribution": {
+      "min_price": 1476000,
+      "max_price": 2291200,
+      "average_price": 1371200
+    },
+    "visualizations": [
+      {
+        "type": "bar_chart",
+        "title": "Price Distribution by Neighborhood",
+        "data": [
+          {
+            "neighborhood": "Notting Hill",
+            "count": 1,
+            "average_price": 2291200
+          },
+          {
+            "neighborhood": "Westminster",
+            "count": 1,
+            "average_price": 1476000
+          },
+          {
+            "neighborhood": "Soho",
+            "count": 1,
+            "average_price": 1881600
+          }
+        ]
+      },
+      {
+        "type": "scatter_plot",
+        "title": "Square Meters vs Price",
+        "data": [
+          {
+            "square_meters": 179,
+            "price": 2291200
+          },
+          {
+            "square_meters": 123,
+            "price": 1476000
+          },
+          {
+            "square_meters": 168,
+            "price": 1881600
+          }
+        ]
+      }
+    ]
+  },
+  "report_output": {
+    "report_id": "report_001",
+    "report_format": "PDF",
+    "generated_at": "2023-10-01T10:35:00Z",
+    "report_link": "https://example.com/reports/report_001.pdf"
+  }
+}
+```
+
+### Explanation
+- **job_id, job_name, job_status**: Basic identifiers and status of the analysis job.
+- **input_data**: Contains references to the raw data entity that is being analyzed and where the data is sourced from.
+- **analysis_parameters**: Specifies the metrics to be calculated and any filters applied during the analysis.
+- **analysis_results**: Summarizes the outcomes of the data analysis, including total houses analyzed, distribution of prices, and visual representations of the results.
+- **report_output**: Information about the generated report, including its format, generation time, and a link to access it. 
+
+This JSON structure provides a comprehensive overview of the analysis conducted on the London Houses data, reflecting the required business logic for the `data_analysis_job` entity.   """
+    output_data = parse_json(input_data)
+
+    print(output_data)
+
+if __name__ == "__main__":
+    main()
+
+async def validate_result(data: str, file_path: str, schema: Optional[str]) -> str:
     if file_path:
         try:
-            with open(file_path, "r") as schema_file:
-                schema = json.load(schema_file)
+            async with aiofiles.open(file_path, "r") as schema_file:
+                content = await schema_file.read()
+                schema = json.load(content)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logger.error(f"Error reading schema file {file_path}: {e}")
             raise
@@ -175,48 +381,54 @@ def consolidate_json_errors(json_str):
 
     return errors
 
-def get_env_var(name: str) -> str:
-    value = os.getenv(name)
-    if value is None:
-        logger.warning(f"Environment variable {name} not found.")
-    return value
 
 
-def read_file(file_path: str):
+async def read_file(file_path: str):
     """Read and return JSON entity from a file."""
     try:
-        with open(file_path, 'r') as file:
-            return file.read()
+        async with aiofiles.open(file_path, 'r') as file:
+            content = await file.read()
+            return content
     except Exception as e:
         logger.error(f"Failed to read JSON file {file_path}: {e}")
-        raise
+        raise  # Re-raise the exception for further handling
 
 
-def read_file_object(file_path: str):
-    """Read and return a file object for the given file path."""
+async def read_file_object(file_path: str):
+    """Asynchronously read and return a file object for the given file path with a file size limit check."""
     try:
-        file = open(file_path, 'rb')
-        return file
+        # First, check the file size before opening it
+        #todo blocking!!!
+        file_size = os.path.getsize(file_path)
+
+        if file_size > MAX_FILE_SIZE:
+            raise ValueError(f"File size exceeds the {MAX_FILE_SIZE} byte limit")
+
+        # Now open the file asynchronously if the size is within limits
+        async with aiofiles.open(file_path, 'rb') as file:
+            return file
     except Exception as e:
         logger.error(f"Failed to open file {file_path}: {e}")
         raise
 
-
-def read_json_file(file_path: str):
+async def read_json_file(file_path: str):
     try:
-        with open(file_path, "r") as file:
-            data = json.load(file)
+        async with aiofiles.open(file_path, "r") as file:
+            content = await file.read()  # Read the file content asynchronously
+            data = json.loads(content)  # Parse the content as JSON
         logger.info(f"Successfully read JSON file: {file_path}")
         return data
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         logger.error(f"File not found: {file_path}")
         raise
     except json.JSONDecodeError as e:
         logger.error(f"JSON decoding failed for file {file_path}: {e}")
         raise
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while reading the file {file_path}: {e}")
+        raise
 
-
-def send_get_request(token: str, api_url: str, path: str) -> Optional[requests.Response]:
+async def send_get_request(token: str, api_url: str, path: str) -> Optional[Any]:
     url = f"{api_url}/{path}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
@@ -224,47 +436,88 @@ def send_get_request(token: str, api_url: str, path: str) -> Optional[requests.R
         "Authorization": f"{token}",
     }
     try:
-        response = requests.get(url, headers=headers)
+        response = await send_request(headers, url, 'GET', None, None)
         # Raise an error for bad status codes
         logger.info(f"GET request to {url} successful.")
         return response
-    except requests.exceptions.HTTPError as http_err:
-        logger.error(f"HTTP error during GET request to {url}: {http_err}")
-        raise
     except Exception as err:
         logger.error(f"Error during GET request to {url}: {err}")
         raise
 
 
-def send_post_request(token: str, api_url: str, path: str, data=None, json=None, user_file=None) -> Optional[requests.Response]:
+async def send_request(headers, url, method, data, json, files=None):
+    async with aiohttp.ClientSession() as session:
+        try:
+            if method == 'GET':
+                async with session.get(url, headers=headers) as response:
+                    if response and (response.status == 200 or response.status == 404):
+                        return await response.json()
+            elif method == 'POST':
+                if not files:
+                    async with session.post(url, headers=headers, data=data, json=json) as response:
+                        if response:
+                            data = await response.json()
+                            return data
+                form_data = aiohttp.FormData()
+
+                # Add regular data (non-file) to form data
+                if data:
+                    for key, value in data.items():
+                        form_data.add_field(key, value)
+
+                # Add JSON data (if any) to form data
+                if json:
+                    form_data.add_field('json', str(json))  # Assuming JSON is a dictionary
+
+                # Add files (if any) to form data
+                if files:
+                    for filename, file_data in files.items():
+                        form_data.add_field('file', file_data, filename=filename,
+                                            content_type='application/octet-stream')
+
+                # Send the POST request with the form data (which includes files, if provided)
+                async with session.post(url, headers=headers, data=form_data) as response:
+                    if response:
+                        return await response.json()
+            elif method == 'PUT':
+                async with session.put(url, headers=headers, data=data, json=json) as response:
+                    if response:
+                        return await response.json()
+            elif method == 'DELETE':
+                async with session.delete(url, headers=headers) as response:
+                    if response:
+                        return await response.json()
+
+        except Exception as e:
+            logger.exception(e)
+            raise
+
+async def send_post_request(token: str, api_url: str, path: str, data=None, json=None, user_file=None) -> Optional[Any]:
     url = f"{api_url}/{path}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
-    headers = {
-        "Authorization": f"{token}",
-    }
-
     try:
         if user_file:
+            headers = {
+                "Authorization": f"{token}",
+            }
             # Remove Content-Type from headers as it will be set automatically in multipart
             files = {'file': user_file}
-            response = requests.post(url, headers=headers, files=files, data=data)
+            response = await send_request(headers=headers, url=url, method='POST', data=data, json=json, files=files)
         else:
             # Regular JSON request
-            headers["Content-Type"] = "application/json"
-            response = requests.post(url, headers=headers, data=data, json=json)
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"{token}",
+            }
+            response = await send_request(headers=headers, url=url, method='POST', data=data, json=json)
 
-        response.raise_for_status()  # Raise an error for bad status codes
-        logger.info(f"POST request to {url} successful.")
         return response
-    except requests.exceptions.HTTPError as http_err:
-        logger.error(f"HTTP error during POST request to {url}: {http_err}")
-        raise
     except Exception as err:
         logger.error(f"Error during POST request to {url}: {err}")
         raise
 
 
-def send_put_request(token: str, api_url: str, path: str, data=None, json=None) -> Optional[requests.Response]:
+async def send_put_request(token: str, api_url: str, path: str, data=None, json=None) -> Optional[Any]:
     url = f"{api_url}/{path}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
@@ -272,19 +525,15 @@ def send_put_request(token: str, api_url: str, path: str, data=None, json=None) 
         "Authorization": f"{token}",
     }
     try:
-        response = requests.put(url, headers=headers, data=data, json=json)
-        response.raise_for_status()  # Raise an error for bad status codes
+        response = await send_request(headers, url, 'PUT', data, json)
         logger.info(f"PUT request to {url} successful.")
         return response
-    except requests.exceptions.HTTPError as http_err:
-        logger.error(f"HTTP error during PUT request to {url}: {http_err}")
-        raise
     except Exception as err:
         logger.error(f"Error during PUT request to {url}: {err}")
         raise
 
 
-def send_delete_request(token: str, api_url: str, path: str) -> Optional[requests.Response]:
+async def send_delete_request(token: str, api_url: str, path: str) -> Optional[Any]:
     url = f"{api_url}/{path}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
@@ -292,13 +541,9 @@ def send_delete_request(token: str, api_url: str, path: str) -> Optional[request
         "Authorization": f"{token}",
     }
     try:
-        response = requests.delete(url, headers=headers)
-        response.raise_for_status()  # Raise an error for bad status codes
+        response = await send_request(headers, url, 'DELETE', None, None)
         logger.info(f"GET request to {url} successful.")
         return response
-    except requests.exceptions.HTTPError as http_err:
-        logger.error(f"HTTP error during GET request to {url}: {http_err}")
-        raise
     except Exception as err:
         logger.error(f"Error during GET request to {url}: {err}")
         raise
@@ -344,21 +589,6 @@ def clean_formatting(text):
 #     return text
 
 
-
-def git_pull(chat_id):
-
-    clone_dir = f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}"
-    os.chdir(clone_dir)
-    # Create a new branch with the name $chat_id
-    subprocess.run(["git", "checkout", str(chat_id)], check=True)
-    try:
-        # Push the new branch to the remote repository
-        subprocess.run(["git", "pull", "origin", str(chat_id)], check=True)
-    except Exception as e:
-        logger.error(f"Error during git push: {e}")
-        logger.exception(e)
-
-
 def get_project_file_name(chat_id, file_name, folder_name=None):
     if folder_name:
         return f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}/{folder_name}/{file_name}"
@@ -369,3 +599,22 @@ def get_project_file_name(chat_id, file_name, folder_name=None):
 def current_timestamp():
     now = datetime.now(ZoneInfo("UTC"))
     return now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + now.strftime("%z")[:3] + ":" + now.strftime("%z")[3:]
+
+
+
+def custom_serializer(obj):
+    if isinstance(obj, queue.Queue):
+        # Convert queue to list
+        return list(obj.queue)
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+
+def format_json_if_needed(data, key):
+    value = data.get(key)
+    if isinstance(value, dict):
+        # Pretty print the JSON object
+        formatted_json = json.dumps(value, indent=4)
+        data[key] = f"```json \n{formatted_json}\n```"
+    else:
+        print(f"Data at {key} is not a valid JSON object: {value}")  # Optionally log this or handle it
+    return data
