@@ -1,6 +1,8 @@
+import asyncio
 import logging
 import os
 import queue
+import jwt
 import time
 import re
 from datetime import datetime
@@ -8,19 +10,24 @@ from zoneinfo import ZoneInfo
 
 import aiofiles
 from typing import Optional, Any
-import uuid
 import json
 
 import aiohttp
 import jsonschema
 from jsonschema import validate
-
-from common.config.config import PROJECT_DIR, REPOSITORY_NAME, MAX_FILE_SIZE
+import hashlib
+import hmac
+import uuid
+from common.config.config import PROJECT_DIR, REPOSITORY_NAME, MAX_FILE_SIZE, CLONE_REPO, REPOSITORY_URL, \
+    AUTH_SECRET_KEY, MAX_IPS_PER_DEVICE_BEFORE_BLOCK, MAX_IPS_PER_DEVICE_BEFORE_ALARM, MAX_SESSIONS_PER_IP
+from common.exception.exceptions import RequestLimitExceededException, InvalidTokenException
 
 logger = logging.getLogger(__name__)
 
+
 class ValidationErrorException(Exception):
     """Custom exception for validation errors."""
+
     def __init__(self, message: str):
         self.message = message
         super().__init__(message)
@@ -154,6 +161,7 @@ def parse_json(text: str) -> str:
     except json.JSONDecodeError:
         # If it fails, just return the original
         return original_text
+
 
 def parse_workflow_json(result: str) -> str:
     # Function to replace single quotes with double quotes and handle True/False
@@ -310,8 +318,10 @@ This JSON structure provides a comprehensive overview of the analysis conducted 
 
     print(output_data)
 
+
 if __name__ == "__main__":
     main()
+
 
 async def validate_result(data: str, file_path: str, schema: Optional[str]) -> str:
     if file_path:
@@ -332,7 +342,7 @@ async def validate_result(data: str, file_path: str, schema: Optional[str]) -> s
         return normalized_json_data
     except jsonschema.exceptions.ValidationError as err:
         logger.error(f"JSON schema validation failed: {err.message}")
-        raise ValidationErrorException(message = f"JSON schema validation failed: {err}, {err.message}")
+        raise ValidationErrorException(message=f"JSON schema validation failed: {err}, {err.message}")
     except json.JSONDecodeError as err:
         logger.error(f"Failed to decode JSON: {err}")
         try:
@@ -341,10 +351,11 @@ async def validate_result(data: str, file_path: str, schema: Optional[str]) -> s
         except Exception as e:
             logger.error(f"Failed to consolidate JSON errors: {e}")
             errors = [str(e)]
-        raise ValidationErrorException(message = f"Failed to decode JSON: {err}, {err.msg}, {errors} . Please make sure the json returned is correct and aligns with json formatting rules. make sure you're using quotes for string values, including None")
+        raise ValidationErrorException(
+            message=f"Failed to decode JSON: {err}, {err.msg}, {errors} . Please make sure the json returned is correct and aligns with json formatting rules. make sure you're using quotes for string values, including None")
     except Exception as err:
         logger.error(f"Unexpected error during JSON validation: {err}")
-        raise ValidationErrorException(message = f"Unexpected error during JSON validation: {err}")
+        raise ValidationErrorException(message=f"Unexpected error during JSON validation: {err}")
 
 
 def consolidate_json_errors(json_str):
@@ -382,7 +393,6 @@ def consolidate_json_errors(json_str):
     return errors
 
 
-
 async def read_file(file_path: str):
     """Read and return JSON entity from a file."""
     try:
@@ -398,7 +408,7 @@ async def read_file_object(file_path: str):
     """Asynchronously read and return a file object for the given file path with a file size limit check."""
     try:
         # First, check the file size before opening it
-        #todo blocking!!!
+        # todo blocking!!!
         file_size = os.path.getsize(file_path)
 
         if file_size > MAX_FILE_SIZE:
@@ -410,6 +420,7 @@ async def read_file_object(file_path: str):
     except Exception as e:
         logger.error(f"Failed to open file {file_path}: {e}")
         raise
+
 
 async def read_json_file(file_path: str):
     try:
@@ -428,8 +439,9 @@ async def read_json_file(file_path: str):
         logger.error(f"An unexpected error occurred while reading the file {file_path}: {e}")
         raise
 
-async def send_get_request(token: str, api_url: str, path: str) -> Optional[Any]:
-    url = f"{api_url}/{path}"
+
+async def send_get_request(token: str, api_url: str, path: str = None) -> Optional[Any]:
+    url = f"{api_url}/{path}" if path else f"{api_url}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
         "Content-Type": "application/json",
@@ -458,27 +470,25 @@ async def send_request(headers, url, method, data, json, files=None):
                         if response:
                             data = await response.json()
                             return data
-                form_data = aiohttp.FormData()
+                form = aiohttp.FormData()
+                async with aiofiles.open(files, 'rb') as f:
+                    file_content = await f.read()
 
-                # Add regular data (non-file) to form data
-                if data:
-                    for key, value in data.items():
-                        form_data.add_field(key, value)
+                async with aiofiles.open(files, 'rb') as f:
+                    form.add_field('file', file_content, filename=files, content_type='application/json')
 
-                # Add JSON data (if any) to form data
-                if json:
-                    form_data.add_field('json', str(json))  # Assuming JSON is a dictionary
+                # Add additional form data (key-value pairs)
+                for key, value in data.items():
+                    form.add_field(key, value)
 
-                # Add files (if any) to form data
-                if files:
-                    for filename, file_data in files.items():
-                        form_data.add_field('file', file_data, filename=filename,
-                                            content_type='application/octet-stream')
-
-                # Send the POST request with the form data (which includes files, if provided)
-                async with session.post(url, headers=headers, data=form_data) as response:
-                    if response:
-                        return await response.json()
+                # Send the POST request
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, headers=headers, data=form) as response:
+                        if response.status == 200:
+                            return await response.json()
+                        else:
+                            print(f"Request failed with status code {response.status}")
+                            return None
             elif method == 'PUT':
                 async with session.put(url, headers=headers, data=data, json=json) as response:
                     if response:
@@ -492,25 +502,19 @@ async def send_request(headers, url, method, data, json, files=None):
             logger.exception(e)
             raise
 
+
 async def send_post_request(token: str, api_url: str, path: str, data=None, json=None, user_file=None) -> Optional[Any]:
-    url = f"{api_url}/{path}"
+    url = f"{api_url}/{path}" if path else f"{api_url}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     try:
-        if user_file:
-            headers = {
-                "Authorization": f"{token}",
-            }
-            # Remove Content-Type from headers as it will be set automatically in multipart
-            files = {'file': user_file}
-            response = await send_request(headers=headers, url=url, method='POST', data=data, json=json, files=files)
-        else:
-            # Regular JSON request
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"{token}",
-            }
-            response = await send_request(headers=headers, url=url, method='POST', data=data, json=json)
-
+        headers = {
+            "Authorization": f"{token}",
+        } if user_file else {
+            "Content-Type": "application/json",
+            "Authorization": f"{token}",
+        }
+        # Remove Content-Type from headers as it will be set automatically in multipart
+        response = await send_request(headers=headers, url=url, method='POST', data=data, json=json, files=user_file)
         return response
     except Exception as err:
         logger.error(f"Error during POST request to {url}: {err}")
@@ -518,7 +522,7 @@ async def send_post_request(token: str, api_url: str, path: str, data=None, json
 
 
 async def send_put_request(token: str, api_url: str, path: str, data=None, json=None) -> Optional[Any]:
-    url = f"{api_url}/{path}"
+    url = f"{api_url}/{path}" if path else f"{api_url}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
         "Content-Type": "application/json",
@@ -534,7 +538,7 @@ async def send_put_request(token: str, api_url: str, path: str, data=None, json=
 
 
 async def send_delete_request(token: str, api_url: str, path: str) -> Optional[Any]:
-    url = f"{api_url}/{path}"
+    url = f"{api_url}/{path}" if path else f"{api_url}"
     token = f"Bearer {token}" if not token.startswith('Bearer') else token
     headers = {
         "Content-Type": "application/json",
@@ -561,12 +565,15 @@ def now():
 def timestamp_before(seconds: int) -> int:
     return int((time.time() - seconds) * 1000.0)
 
+
 def clean_formatting(text):
     """
     Convert multi-line text into a single line, preserving all other content.
     """
     # Replace any sequence of newlines (and carriage returns) with a single space
     return re.sub(r'[\r\n]+', ' ', text)
+
+
 # def clean_formatting(text):
 #     """
 #     This function simulates the behavior of text pasted into Google search:
@@ -601,7 +608,6 @@ def current_timestamp():
     return now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + now.strftime("%z")[:3] + ":" + now.strftime("%z")[3:]
 
 
-
 def custom_serializer(obj):
     if isinstance(obj, queue.Queue):
         # Convert queue to list
@@ -618,3 +624,310 @@ def format_json_if_needed(data, key):
     else:
         print(f"Data at {key} is not a valid JSON object: {value}")  # Optionally log this or handle it
     return data
+
+
+async def _save_file(chat_id, _data, item, folder_name=None) -> str:
+    """
+    Save a file (text or binary) inside a specific directory.
+    Handles FileStorage objects directly.
+    """
+    target_dir = os.path.join(f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}", folder_name or "")
+    file_path = os.path.join(target_dir, item)
+    logger.info(f"Saving to {file_path}")
+
+    # Use asyncio.to_thread for non-blocking creation of directories
+    await asyncio.to_thread(os.makedirs, os.path.dirname(file_path), exist_ok=True)
+
+    # Process the _data and get the output to save
+    try:
+        # Handle FileStorage object directly
+        if hasattr(_data, "read"):  # Check if `_data` is a file-like object
+            _data.seek(0)  # Ensure we're at the beginning of the file
+            write_mode = 'wb'  # Assume binary mode for file-like objects
+            async with aiofiles.open(file_path, write_mode) as output:
+                file_data = _data.read()  # Read the data directly, no need to await
+                await output.write(file_data)  # Now you can await the write operation
+        else:
+            # Process and save as text or binary
+
+            if isinstance(_data, dict):
+                output_data = json.dumps(_data)
+            elif isinstance(_data, list):
+                output_data = json.dumps(_data)
+            else:
+                output_data = _data
+            write_mode = 'w' if isinstance(output_data, str) else 'wb'
+            async with aiofiles.open(file_path, write_mode) as output:
+
+                await output.write(output_data)
+    except Exception as e:
+        logger.error(f"Failed to save file {file_path}: {e}")
+        raise
+
+    logger.info(f"Saved to {file_path}")
+
+    # Define the path for __init__.py in the target directory
+    init_file_target_dir = os.path.dirname(file_path)
+    init_file = os.path.join(init_file_target_dir, "__init__.py")
+    file_paths_to_commit = [file_path]
+
+    # Check if __init__.py exists asynchronously
+    init_file_exists = await asyncio.to_thread(os.path.exists, init_file)
+
+    if not init_file_exists:
+        # If __init__.py does not exist, create it (empty __init__.py file)
+        async with aiofiles.open(init_file, 'w') as f:
+            pass  # Just create an empty __init__.py file
+
+        logger.info(f"Created {init_file}")
+        file_paths_to_commit.append(init_file)
+
+    if CLONE_REPO == "true":
+        await _git_push(chat_id, file_paths_to_commit, commit_message=f"saved {item}")
+
+    logger.info(f"pushed to git")
+
+    return str(file_path)
+
+
+async def git_pull(chat_id, merge_strategy="recursive"):
+    clone_dir = f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}"
+
+    try:
+        # Start the `git checkout` command asynchronously
+        checkout_process = await asyncio.create_subprocess_exec(
+            'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
+            'checkout', str(chat_id),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await checkout_process.communicate()
+
+        if checkout_process.returncode != 0:
+            logger.error(f"Error during git checkout: {stderr.decode()}")
+            return
+
+        # Fetch latest changes from remote (without merging them yet)
+        fetch_process = await asyncio.create_subprocess_exec(
+            'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
+            'fetch', 'origin',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        fetch_stdout, fetch_stderr = await fetch_process.communicate()
+
+        if fetch_process.returncode != 0:
+            logger.error(f"Error during git fetch: {fetch_stderr.decode()}")
+            return
+
+        # Compare the local branch with its remote counterpart explicitly
+        diff_process = await asyncio.create_subprocess_exec(
+            'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
+            'diff', f"origin/{str(chat_id)}", str(chat_id),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        diff_stdout, diff_stderr = await diff_process.communicate()
+
+        if diff_process.returncode != 0:
+            logger.error(f"Error during git diff: {diff_stderr.decode()}")
+            return
+
+        # Capture the full diff result before pull
+        diff_result_before_pull = diff_stdout.decode()
+        logger.info(f"Git diff (before pull): {diff_result_before_pull}")
+
+        # If no diff, skip the pull
+        if not diff_result_before_pull.strip():
+            logger.info("No changes to pull, skipping pull.")
+            return diff_result_before_pull  # Just return the diff with no changes
+
+        # Now, run the `git pull` command asynchronously with the specified merge strategy
+        pull_process = await asyncio.create_subprocess_exec(
+            'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
+            'pull', '--strategy', merge_strategy, '--strategy-option=theirs', 'origin', str(chat_id),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        pull_stdout, pull_stderr = await pull_process.communicate()
+
+        if pull_process.returncode != 0:
+            logger.error(f"Error during git pull: {pull_stderr.decode()}")
+            return
+
+        logger.info(f"Git pull successful: {pull_stdout.decode()}")
+
+        # Return the full diff before pull as the result
+        return diff_result_before_pull
+
+    except Exception as e:
+        logger.error(f"Unexpected error during git pull: {e}")
+        logger.exception(e)
+
+
+# todo git push in case of interim changes will throw an error
+async def _git_push(chat_id, file_paths: list, commit_message: str):
+    await git_pull(chat_id=chat_id)
+
+    clone_dir = f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}"
+
+    try:
+        # Create a new branch with the name $chat_id
+        checkout_process = await asyncio.create_subprocess_exec(
+            'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
+            'checkout', str(chat_id),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await checkout_process.communicate()
+        if checkout_process.returncode != 0:
+            logger.error(f"Error during git checkout: {stderr.decode()}")
+            return
+
+        # Add files to the commit
+        for file_path in file_paths:
+            add_process = await asyncio.create_subprocess_exec(
+                'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
+                'add', file_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await add_process.communicate()
+            if add_process.returncode != 0:
+                logger.error(f"Error during git add {file_path}: {stderr.decode()}")
+                return
+
+        # Commit the changes
+        commit_process = await asyncio.create_subprocess_exec(
+            'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
+            'commit', '-m', f"{commit_message}: {chat_id}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await commit_process.communicate()
+        if commit_process.returncode != 0:
+            logger.error(f"Error during git commit: {stderr.decode()}")
+            return
+
+        # Push the new branch to the remote repository
+        push_process = await asyncio.create_subprocess_exec(
+            'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
+            'push', '-u', 'origin', str(chat_id),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await push_process.communicate()
+        if push_process.returncode != 0:
+            logger.error(f"Error during git push: {stderr.decode()}")
+            return
+
+        logger.info("Git push successful!")
+
+    except Exception as e:
+        logger.error(f"Unexpected error during git push: {e}")
+        logger.exception(e)
+
+
+async def repo_exists(path: str) -> bool:
+    # Run the blocking os.path.exists in a separate thread
+    return await asyncio.to_thread(os.path.exists, path)
+
+
+async def run_git_config_command():
+    process = await asyncio.create_subprocess_exec(
+        "git", "config", "pull.rebase", "false", "--global",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        raise Exception(f"Command failed with error: {stderr.decode().strip()}")
+    print(stdout.decode().strip())
+
+
+async def set_upstream_tracking(chat_id):
+    branch = chat_id
+    # Construct the command to set the upstream branch
+    process = await asyncio.create_subprocess_exec(
+        "git", "branch", "--set-upstream-to", f"origin/{branch}", branch,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+    stdout, stderr = await process.communicate()
+
+    if process.returncode != 0:
+        print(f"Error setting upstream: {stderr.decode().strip()}")
+    else:
+        print(f"Successfully set upstream tracking for branch {branch}.")
+
+
+async def clone_repo(chat_id: str):
+    """
+    Clone the GitHub repository to the target directory.
+    If the repository should not be copied, it ensures the target directory exists.
+    """
+    clone_dir = f"{PROJECT_DIR}/{chat_id}/{REPOSITORY_NAME}"
+
+    if await repo_exists(clone_dir):
+        return
+
+    if CLONE_REPO != "true":
+        # Create the directory asynchronously using asyncio.to_thread
+        await asyncio.to_thread(os.makedirs, clone_dir, exist_ok=True)
+        logger.info(f"Target directory '{clone_dir}' is created.")
+        return
+
+    # Asynchronously clone the repository using subprocess
+    clone_process = await asyncio.create_subprocess_exec(
+        'git', 'clone', REPOSITORY_URL, clone_dir,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await clone_process.communicate()
+
+    if clone_process.returncode != 0:
+        logger.error(f"Error during git clone: {stderr.decode()}")
+        return
+
+    # Asynchronously checkout the branch using subprocess
+    checkout_process = await asyncio.create_subprocess_exec(
+        'git', '--git-dir', f"{clone_dir}/.git", '--work-tree', clone_dir,
+        'checkout', '-b', str(chat_id),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await checkout_process.communicate()
+
+    if checkout_process.returncode != 0:
+        logger.error(f"Error during git checkout: {stderr.decode()}")
+        return
+
+    logger.info(f"Repository cloned to {clone_dir}")
+
+    os.chdir(clone_dir)
+    await set_upstream_tracking(chat_id=chat_id)
+    await run_git_config_command()
+
+
+def validate_token(token):
+    try:
+        payload = jwt.decode(token, AUTH_SECRET_KEY, algorithms=["HS256"])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise InvalidTokenException()
+    except jwt.InvalidTokenError:
+        raise InvalidTokenException()
+
+def parse_from_string(escaped_code: str) -> str:
+    """
+    Convert a string containing escape sequences into its normal representation.
+
+    Args:
+        escaped_code: A string with literal escape characters (e.g. "\\n").
+
+    Returns:
+        A string with actual newlines and other escape sequences interpreted.
+    """
+    # Using the 'unicode_escape' decoding to process the escape sequences
+    return escaped_code.encode("utf-8").decode("unicode_escape")

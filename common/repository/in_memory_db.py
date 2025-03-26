@@ -66,6 +66,9 @@ class InMemoryRepository(CrudRepository):
         return entities
 
     async def save(self, meta, entity: Any) -> Any:
+        if (entity.get("technical_id")):
+            cache[entity.get("technical_id")] = entity
+            return entity.get("technical_id")
         uuid = str(generate_uuid())
         cache[uuid] = entity
         return uuid

@@ -14,5 +14,11 @@ python-dotenv==1.0.1
 
 black==24.10.0
 aiofiles==24.1.0
-aiohttp==3.11.11
+aiohttp==3.11.12
 quart-rate-limiter==0.11.0
+openai==1.61.1
+PyMuPDF==1.25.3
+beautifulsoup4==4.13.3
+inflect==7.5.0
+nltk==3.9.1
+libcst==1.6.0

@@ -13,7 +13,7 @@ class EntityServiceImpl(EntityService):
     _lock = threading.Lock()
     _repository: CrudRepository = None
 
-    def __new__(cls, repository: CrudRepository = None):
+    def __new__(cls, repository: CrudRepository = None, mock=False):
         logger.info("initializing CyodaService")
         # Ensuring only one instance is created
         if cls._instance is None:

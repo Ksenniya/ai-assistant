@@ -186,7 +186,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     async def _save_entity_schema(token, entity_name, version, data):
-        path = f"entity/JSON/TREE/{entity_name}/{version}"
+        path = f"entity/JSON/{entity_name}/{version}"
 
         try:
             response = await send_post_request(token=token, api_url=API_URL, path=path, data=data)
@@ -206,7 +206,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     async def _lock_entity_schema(token, entity_name, version, data):
-        path = f"treeNode/model/{entity_name}/{version}/lock"
+        path = f"model/{entity_name}/{version}/lock"
 
         try:
             response = await send_put_request(token=token, api_url=API_URL, path=path, data=data)
@@ -226,7 +226,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     async def _model_exists(token, entity_name, version) -> bool:
-        export_model_path = f"treeNode/model/export/SIMPLE_VIEW/{entity_name}/{version}"
+        export_model_path = f"model/export/SIMPLE_VIEW/{entity_name}/{version}"
         response = await send_get_request(token, API_URL, export_model_path)
 
         if response:
@@ -236,7 +236,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     async def _get_model(token, entity_name, version):
-        export_model_url = f"treeNode/model/export/SIMPLE_VIEW/{entity_name}/{version}"
+        export_model_url = f"model/export/SIMPLE_VIEW/{entity_name}/{version}"
 
         response = await send_get_request(token, API_URL, export_model_url)
 
@@ -247,7 +247,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     async def _save_new_entity(token, model, version, data):
-        path = f"entity/JSON/TREE/{model}/{version}"
+        path = f"entity/JSON/{model}/{version}"
         logger.info(f"Saving new entity to path: {path}")
 
         try:
@@ -266,7 +266,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     async def _delete_all_entities(token, model_name, model_version):
-        delete_entities_url = f"entity/TREE/{model_name}/{model_version}"
+        delete_entities_url = f"entity/{model_name}/{model_version}"
 
         response = await send_delete_request(token, API_URL, delete_entities_url)
 
@@ -277,7 +277,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     async def _create_snapshot_search(token, model_name, model_version, condition):
-        search_url = f"treeNode/search/snapshot/{model_name}/{model_version}"
+        search_url = f"search/snapshot/{model_name}/{model_version}"
         logger.info(condition)
         response = await send_post_request(token, API_URL, search_url, data=json.dumps(condition))
         if response:
@@ -287,7 +287,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     async def _get_snapshot_status(token, snapshot_id):
-        status_url = f"treeNode/search/snapshot/{snapshot_id}/status"
+        status_url = f"search/snapshot/{snapshot_id}/status"
 
         response = await send_get_request(token, API_URL, status_url)
         if response:
@@ -317,7 +317,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     async def _get_search_result(token, snapshot_id, page_size, page_number):
-        result_url = f"treeNode/search/snapshot/{snapshot_id}"
+        result_url = f"search/snapshot/{snapshot_id}"
 
         params = {
             'pageSize': f"{page_size}",
@@ -333,7 +333,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     async def _update_entities(meta, entities: List[Any]) -> List[Any]:
-        path = "entity/JSON/TREE"
+        path = "entity/JSON"
         payload = []
         for entity in entities:
             payload_json = json.dumps(entity, default=custom_serializer)
@@ -354,7 +354,7 @@ class CyodaRepository(CrudRepository):
 
     @staticmethod
     async def _update_entity(meta, _id, entity: Any) -> List[Any]:
-        path = "entity/JSON/TREE"
+        path = "entity/JSON"
 
         # entities_data = {
         #     key: value for key, value in entity.to_dict().items()
@@ -389,13 +389,13 @@ class CyodaRepository(CrudRepository):
         return entities
 
     async def _get_by_id(self, meta, _uuid):
-        path = f"entity/TREE/{_uuid}"
+        path = f"entity/{_uuid}"
         response = await send_get_request(meta["token"], API_URL, path=path)
         logger.info(response)
         return response.get('tree')
 
     async def _get_all_entities(self, meta):
-        path = f"entity/TREE/{meta["entity_model"]}/{meta["entity_version"]}"
+        path = f"entity/{meta["entity_model"]}/{meta["entity_version"]}"
         response = await send_get_request(meta["token"], API_URL, path=path)
         logger.info(response)
         return response
