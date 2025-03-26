@@ -1,9 +1,7 @@
-import asyncio
 import inspect
 import logging
 from common.config.conts import OPEN_AI
 from common.util.utils import _save_file
-from entity.chat.data.workflow_prototype.batch_parallel_code import batch_process_file
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -140,11 +138,6 @@ class WorkflowDispatcher:
                 latest_message["consumed"] = True
 
     async def _get_ai_agent_response(self, config, entity, technical_id):
-        if config.get("type") == "batch":
-            input_file_path=config.get("input").get("local_fs")[0]
-            output_file_path = config.get("output").get("local_fs")[0]
-            await batch_process_file(input_file_path=input_file_path, output_file_path=output_file_path)
-            return f"Scheduled batch processing for {input_file_path}"
 
         return await self.ai_agent.run(
             methods_dict=self.methods_dict,

@@ -13,16 +13,14 @@ import aiofiles
 from quart import Quart, request, jsonify, send_from_directory, websocket
 from quart_cors import cors
 from quart_rate_limiter import RateLimiter, rate_limit
-from common.config.config import MOCK_AI, CYODA_AI_API, ENTITY_VERSION, API_PREFIX, API_URL, ENABLE_AUTH, MAX_TEXT_SIZE, \
-    MAX_FILE_SIZE, USER_FILES_DIR_NAME, CHAT_REPOSITORY, RAW_REPOSITORY_URL, MAX_GUEST_CHATS, AUTH_SECRET_KEY, \
+from common.config.config import MOCK_AI, ENTITY_VERSION, API_PREFIX, API_URL, ENABLE_AUTH, MAX_TEXT_SIZE, \
+    MAX_FILE_SIZE, CHAT_REPOSITORY, RAW_REPOSITORY_URL, MAX_GUEST_CHATS, AUTH_SECRET_KEY, \
     MAX_ITERATION
-from common.config.conts import EDITING_AGENT, APP_BUILDER_MODE, OPEN_AI
+from common.config.conts import OPEN_AI
 from common.exception.exceptions import ChatNotFoundException, InvalidTokenException
 from common.util.file_reader import read_file_content
-from common.util.utils import clean_formatting, send_get_request, current_timestamp, _save_file, clone_repo, \
+from common.util.utils import send_get_request, current_timestamp, clone_repo, \
     validate_token
-from entity.chat.data.data import app_building_stack, APP_BUILDER_FLOW, DESIGN_PLEASE_WAIT, \
-    APPROVE_WARNING, DESIGN_IN_PROGRESS_WARNING, OPERATION_NOT_SUPPORTED_WARNING, ADDITIONAL_QUESTION_ROLLBACK_WARNING
 from logic.init import BeanFactory
 
 PUSH_NOTIFICATION = "push_notification"
@@ -159,7 +157,7 @@ async def index():
 @app.route(API_PREFIX + '/chat-flow', methods=['GET'])
 @rate_limit(RATE_LIMIT, timedelta(minutes=1))
 async def get_chat_flow():
-    return jsonify(APP_BUILDER_FLOW)
+    return jsonify("APP_BUILDER_FLOW")
 
 
 @app.route(API_PREFIX + '/chats', methods=['GET'])
@@ -325,7 +323,7 @@ async def submit_question(technical_id):
 @auth_required
 @rate_limit(RATE_LIMIT, timedelta(minutes=1))
 async def push_notify(technical_id):
-    return jsonify({"error": OPERATION_NOT_SUPPORTED_WARNING}), 400
+    return jsonify({"error": "OPERATION_NOT_SUPPORTED_WARNING"}), 400
     # auth_header = request.headers.get('Authorization')
     # chat = await _get_chat_for_user(auth_header, technical_id)
     # await git_pull(chat['chat_id'])
@@ -348,7 +346,7 @@ async def rollback(technical_id):
     auth_header = request.headers.get('Authorization')
     req_data = await request.get_json()
     if not req_data.get('question') or not req_data.get('stack'):
-        return jsonify({"error": ADDITIONAL_QUESTION_ROLLBACK_WARNING}), 400
+        return jsonify({"error": "ADDITIONAL_QUESTION_ROLLBACK_WARNING"}), 400
     question = req_data.get('question') if req_data else None
     chat = await _get_chat_for_user(request=request, auth_header=auth_header, technical_id=technical_id)
     return await rollback_dialogue_script(technical_id, auth_header, chat, question)
@@ -538,10 +536,10 @@ async def rollback_dialogue_script(technical_id, auth_header, chat, question):
     finished_flow = chat["chat_flow"]["finished_flow"]
     if not finished_flow[-1].get("question"):
         return jsonify({
-            "message": DESIGN_IN_PROGRESS_WARNING}), 400
+            "message": "DESIGN_IN_PROGRESS_WARNING"}), 400
     if not question:
         return jsonify({
-            "message": OPERATION_NOT_SUPPORTED_WARNING}), 400
+            "message": "OPERATION_NOT_SUPPORTED_WARNING"}), 400
     event = finished_flow.pop()
     while finished_flow and (not event.get("question") or event.get("question") != question):
         if event.get("stack") and (
@@ -575,7 +573,7 @@ def _validate_answer(answer, user_file):
 
 def _append_wait_notification(question_queue):
     wait_notification = {
-        "notification": f"Thank you for your answer! {DESIGN_PLEASE_WAIT}",
+        "notification": f"Thank you for your answer! {"DESIGN_PLEASE_WAIT"}",
         "prompt": {},
         "answer": None,
         "function": None,
