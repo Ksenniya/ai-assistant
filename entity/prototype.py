@@ -1,8 +1,7 @@
-Here's a prototype implementation for your Quart application based on the specified requirements. The code is structured to be a working prototype, utilizing real APIs where appropriate, while placeholders and mocks are included to indicate areas that may need further development.
-
 ```python
+from dataclasses import dataclass
 from quart import Quart, request, jsonify
-from quart_schema import QuartSchema
+from quart_schema import QuartSchema, validate_request, validate_querystring
 import httpx
 import asyncio
 import logging
@@ -20,6 +19,15 @@ entity_job = {}
 # Mock external API URL (replace with a real API)
 EXTERNAL_API_URL = "https://api.example.com/data"  # TODO: Replace with a real API endpoint
 
+@dataclass
+class CalculateRequest:
+    input_data: str
+    user_id: str
+
+@dataclass
+class ResultsQuery:
+    user_id: str = None
+
 async def fetch_external_data(input_data):
     try:
         async with httpx.AsyncClient() as client:
@@ -31,18 +39,16 @@ async def fetch_external_data(input_data):
         return None
 
 async def process_entity(job_id, input_data):
-    # Simulate processing of the entity
     await asyncio.sleep(2)  # Simulate time-consuming task
     result = f"Processed {input_data}"  # TODO: Replace with actual processing logic
     entity_job[job_id]["status"] = "completed"
     entity_job[job_id]["result"] = result
 
 @app.route('/calculate', methods=['POST'])
-async def calculate():
-    data = await request.get_json()
-    
-    user_id = data.get("user_id")
-    input_data = data.get("input_data")
+@validate_request(CalculateRequest)  # Validation for POST should be last
+async def calculate(data: CalculateRequest):
+    user_id = data.user_id
+    input_data = data.input_data
 
     if not input_data:
         return jsonify({"error": "Invalid input data."}), 400
@@ -61,6 +67,7 @@ async def calculate():
     return jsonify({"result": "Calculation initiated", "user_id": user_id, "job_id": job_id}), 201
 
 @app.route('/results', methods=['GET'])
+@validate_querystring(ResultsQuery)  # Workaround: Validation for GET should be first
 async def get_results():
     user_id = request.args.get('user_id')
     results = [job for job_id, job in entity_job.items() if job.get("user_id") == user_id] if user_id else list(entity_job.values())
@@ -73,10 +80,3 @@ async def get_results():
 if __name__ == '__main__':
     app.run(use_reloader=False, debug=True, host='0.0.0.0', port=8000, threaded=True)
 ```
-
-### Notes:
-- The `fetch_external_data` function is a placeholder for making real API calls. You should replace the `EXTERNAL_API_URL` with an actual endpoint.
-- The processing logic in `process_entity` is currently a simple placeholder. You can update it as per the actual business logic required.
-- The logging setup is included to capture any errors or information during the execution of the application.
-- Local caching is simulated using a Python dictionary to hold job statuses and results. No persistent storage is implemented in this prototype.
-- The prototype is designed to test the user experience and identify any gaps in requirements before moving towards a more comprehensive solution.
