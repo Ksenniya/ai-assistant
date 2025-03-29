@@ -1,10 +1,9 @@
-Here's the `prototype.py` file, which implements a working prototype of your Quart application based on the requirements provided. It uses `httpx.AsyncClient` for HTTP requests and includes necessary logging for error handling. Mocking has been incorporated where appropriate, with TODO comments for future implementation.
-
 ```python
 import logging
 import asyncio
+from dataclasses import dataclass
 from quart import Quart, jsonify, request
-from quart_schema import QuartSchema
+from quart_schema import QuartSchema, validate_request, validate_querystring
 import httpx
 
 # Initialize logging
@@ -17,16 +16,24 @@ QuartSchema(app)
 # In-memory cache for processing jobs
 entity_job = {}
 
+@dataclass
+class ProcessInput:
+    input: str
+
+@dataclass
+class Calculation:
+    operation: str
+    numbers: list
+
 @app.route('/hello', methods=['GET'])
 async def hello():
     return jsonify(message="Hello, World!")
 
 @app.route('/process', methods=['POST'])
-async def process():
-    data = await request.get_json()
+@validate_request(ProcessInput)  # Validation last in POST request
+async def process(data: ProcessInput):
     # TODO: Implement actual processing logic
-    input_data = data.get('input', '')
-    # Simulate processing
+    input_data = data.input
     requested_at = asyncio.get_event_loop().time()
     job_id = len(entity_job) + 1
     entity_job[job_id] = {"status": "processing", "requestedAt": requested_at}
@@ -51,10 +58,10 @@ async def process_entity(job_id, input_data):
         entity_job[job_id]['status'] = "error"
 
 @app.route('/calculate', methods=['POST'])
-async def calculate():
-    data = await request.get_json()
-    operation = data.get('operation')
-    numbers = data.get('numbers', [])
+@validate_request(Calculation)  # Validation last in POST request
+async def calculate(data: Calculation):
+    operation = data.operation
+    numbers = data.numbers
     
     if operation not in ['add', 'subtract', 'multiply', 'divide']:
         return jsonify({"error": "Invalid operation"}), 400
@@ -76,15 +83,13 @@ async def calculate():
     
     return jsonify(result=result)
 
+@app.route('/companies/<string:id>/lei', methods=['GET'])
+@validate_querystring(ProcessInput)  # Validation first in GET request (workaround)
+async def get_leis():
+    # Cannot put body to GET request! Only accessing query parameters is allowed.
+    # Example: request.args.get('name') for retrieving query parameters
+    return jsonify(message="LEI retrieval not implemented yet.")
+
 if __name__ == '__main__':
     app.run(use_reloader=False, debug=True, host='0.0.0.0', port=8000, threaded=True)
 ```
-
-### Key Points:
-- The `hello` endpoint returns a simple message.
-- The `process` endpoint simulates processing user input and includes a mock for an external API call.
-- The `calculate` endpoint performs basic arithmetic operations based on the provided operation and numbers.
-- Logging is set up to capture exceptions and info-level logs.
-- The prototype uses in-memory storage for job processing status.
-
-This prototype should help you verify the user experience and identify any gaps in the requirements before moving forward with a more robust implementation.
