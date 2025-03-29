@@ -1,6 +1,7 @@
 ```python
 from quart import Quart, request, jsonify
-from quart_schema import QuartSchema
+from quart_schema import QuartSchema, validate_request, validate_querystring
+from dataclasses import dataclass
 import httpx
 import asyncio
 import logging
@@ -17,9 +18,17 @@ QuartSchema(app)
 # In-memory cache to simulate persistence
 entity_job = {}
 
+@dataclass
+class ProcessDataInput:
+    data_field_1: str
+    data_field_2: str
+
+@dataclass
+class ResultQuery:
+    job_id: str
+
 async def fetch_external_data(data_field_1, data_field_2):
     # TODO: Replace with a real API call
-    # Example of a real API call (using placeholder URL)
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(f'https://api.example.com/data?field1={data_field_1}&field2={data_field_2}')
@@ -33,23 +42,21 @@ async def fetch_external_data(data_field_1, data_field_2):
             return None
 
 async def process_entity(job_id, data):
-    # Simulating a long-running task
     await asyncio.sleep(2)  # Placeholder for processing time
-    # TODO: Add actual processing logic here
     processed_value = f"Processed {data['data_field_1']} and {data['data_field_2']}"
     entity_job[job_id]["result"] = processed_value
     entity_job[job_id]["status"] = "completed"
 
 @app.route('/process-data', methods=['POST'])
-async def process_data():
-    data = await request.get_json()
+@validate_request(ProcessDataInput)  # Validation should be last for POST
+async def process_data(data: ProcessDataInput):
     job_id = str(datetime.utcnow().timestamp())  # Unique job ID
     requested_at = datetime.utcnow()
 
     entity_job[job_id] = {"status": "processing", "requestedAt": requested_at}
     
     # Fire and forget the processing task
-    await asyncio.create_task(process_entity(job_id, data['input']))
+    await asyncio.create_task(process_entity(job_id, data.__dict__))
 
     return jsonify({
         "result": None,
@@ -59,7 +66,14 @@ async def process_data():
     })
 
 @app.route('/results', methods=['GET'])
+@validate_querystring(ResultQuery)  # Workaround for validation order issue
 async def get_results():
+    job_id = request.args.get('job_id')  # Accessing GET parameters
+    if job_id:
+        return jsonify({
+            "results": entity_job.get(job_id, {}),
+            "status": "success"
+        })
     return jsonify({
         "results": [
             {"id": job_id, **job_info} for job_id, job_info in entity_job.items()
@@ -70,9 +84,3 @@ async def get_results():
 if __name__ == '__main__':
     app.run(use_reloader=False, debug=True, host='0.0.0.0', port=8000, threaded=True)
 ```
-
-### Notes:
-- The `fetch_external_data` function is set up to call a real API but is currently a placeholder for demonstration purposes. You should replace the URL and logic as needed.
-- In-memory caching is used instead of a database, as per your requirements.
-- Proper logging is included, and the code is structured to facilitate testing user experience.
-- The prototype focuses on verifying the UX and identifying gaps in requirements before a more robust implementation.
