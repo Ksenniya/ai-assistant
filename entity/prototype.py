@@ -1,4 +1,3 @@
-```python
 from quart import Quart, request
 from quart_schema import QuartSchema, validate_request, validate_querystring
 from dataclasses import dataclass
@@ -13,7 +12,7 @@ app = Quart(__name__)
 QuartSchema(app)
 
 # Example data class for validation
-@dataclass
+dataclass
 class Todo:
     task: str
 
@@ -50,4 +49,3 @@ async def process_entity(entity_job, data):
 
 if __name__ == '__main__':
     app.run(use_reloader=False, debug=True, host='0.0.0.0', port=8000, threaded=True)
-```
