@@ -1,50 +1,64 @@
 ```python
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import Any, Dict
 import asyncio
 
-app = FastAPI()
-
-# Constants
 ENTITY_VERSION = "1.0"
-
-# Sample data model
-class ItemModel(BaseModel):
-    name: str
-    description: str
-    attribute: str
 
 # Simulated entity service
 class EntityService:
-    async def add_item(self, token: str, entity_model: str, entity_version: str, entity: Dict[str, Any], workflow: callable):
+    async def add_item(self, token, entity_model, entity_version, entity, workflow):
         # Apply the workflow function to the entity before persistence
         await workflow(entity)
-        # Simulate persistence operation
-        entity_id = "some_unique_id"  # Simulated ID
-        return entity_id
+        # Simulated persistence logic here
+        print(f"Persisting {entity_model} v{entity_version}: {entity}")
+        return entity.get("id")
 
-entity_service = EntityService()
+# Simulated workflow functions
+async def process_entity_name(entity):
+    # Perform logic before persisting the entity
+    entity['processed'] = True  # Example of modifying entity state
+    await some_async_task(entity)
 
-# Workflow function for ItemModel
-async def process_item(entity: Dict[str, Any]):
-    # Example logic: modify an attribute
-    entity['attribute'] = "modified_value"
-    # Simulate getting and adding supplementary data
-    await asyncio.sleep(0)  # Simulate async operation
+async def some_async_task(entity):
+    # Simulate an asynchronous task
+    await asyncio.sleep(1)
+    entity['secondary_data'] = "Additional Data"  # Example of adding supplementary data
 
-@app.post("/items/")
-async def create_item(item: ItemModel):
-    token = "example_token"  # Simulate token retrieval
-    data = item.dict()
+# Simulated controller
+async def create_entity(cyoda_token, data):
+    entity_service = EntityService()
     
-    # Call add_item with the workflow function
+    # Validate data if necessary
+    if not validate_data(data):
+        raise ValueError("Invalid data provided")
+    
+    # Use the workflow function for processing
     entity_id = await entity_service.add_item(
-        token=token,
-        entity_model="ItemModel",
+        token=cyoda_token,
+        entity_model="entity_name",
         entity_version=ENTITY_VERSION,
         entity=data,
-        workflow=process_item  # Pass the workflow function
+        workflow=process_entity_name  # Pass the workflow function
     )
-    return {"entity_id": entity_id}
+    
+    return entity_id
+
+def validate_data(data):
+    # Implement your data validation logic here
+    return True  # Example validation
+
+# Example usage
+async def main():
+    cyoda_token = "example_token"
+    data = {
+        "id": "123",
+        "name": "Example Entity",
+        "attribute": "Initial Value"
+    }
+    
+    entity_id = await create_entity(cyoda_token, data)
+    print(f"Entity created with ID: {entity_id}")
+
+# Run the main function
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
