@@ -1,60 +1,53 @@
 ```python
-from quart import Quart, request, jsonify
-from quart_schema import QuartSchema
+from quart import Quart, request
+from quart_schema import QuartSchema, validate_request, validate_querystring
+from dataclasses import dataclass
 import httpx
 import asyncio
 import logging
-from datetime import datetime
 
-# Initialize logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 app = Quart(__name__)
 QuartSchema(app)
 
-# In-memory cache for jobs
-entity_job = {}
+# Example data class for validation
+@dataclass
+class Todo:
+    task: str
 
-async def process_entity(job_id, data):
-    # TODO: Implement actual processing logic or API call
-    await asyncio.sleep(5)  # Simulate processing delay
-    entity_job[job_id]["status"] = "completed"
-
-@app.route('/api/process', methods=['POST'])
-async def process_data():
-    req_data = await request.get_json()
-    job_id = str(len(entity_job) + 1)  # Simple job ID generation
-    requested_at = datetime.utcnow()
-
-    entity_job[job_id] = {
-        "status": "processing",
-        "requestedAt": requested_at
-    }
-
+# POST request to create a todo
+@app.route("/test", methods=["POST"])  # This line should go first in post method
+@validate_request(Todo)  # This line should go second in post method
+async def create_todo(data: Todo):
+    requested_at = "2023-10-01T12:00:00Z"  # Placeholder for actual timestamp
+    job_id = "some_unique_job_id"  # Placeholder for actual job ID
+    entity_job = {}
+    entity_job[job_id] = {"status": "processing", "requestedAt": requested_at}
     # Fire and forget the processing task
-    await asyncio.create_task(process_entity(job_id, req_data))
+    await asyncio.create_task(process_entity(entity_job, data.__dict__))
+    return {"job_id": job_id}, 202
 
-    response = {
-        "job_id": job_id,
-        "status": "processing",
-        "requestedAt": requested_at.isoformat()
-    }
-    return jsonify(response), 202
+# GET request to retrieve a todo
+@app.route("/test", methods=["GET"])  # This line should go first in get method
+@validate_querystring(Todo)  # This line should go first in get method
+async def get_todo():
+    # Cannot put body to GET request
+    name = request.args.get('name')  # Use standard approach to access parameters values for GET requests
+    # TODO: Implement retrieval of todo based on name
+    return {"task": name}, 200
 
-@app.route('/api/job/<job_id>', methods=['GET'])
-async def get_job_status(job_id):
-    job_info = entity_job.get(job_id)
-    if job_info:
-        return jsonify({"job_id": job_id, "status": job_info["status"]}), 200
-    return jsonify({"error": "Job not found"}), 404
+# GET request with path parameter
+@app.route("/companies/<string:id>/lei", methods=["GET"])  # No validation needed
+async def get_company_lei(id):
+    # TODO: Implement retrieval of company LEI based on id
+    return {"id": id, "lei": "some_lei_value"}, 200
+
+async def process_entity(entity_job, data):
+    # TODO: Implement processing logic here
+    pass
 
 if __name__ == '__main__':
     app.run(use_reloader=False, debug=True, host='0.0.0.0', port=8000, threaded=True)
 ```
-
-### Notes:
-- The `process_entity` function is a placeholder for business logic that would normally involve external API calls or data processing.
-- The in-memory cache is used to simulate job persistence. No database or external storage is implemented.
-- Logging is set up to capture exceptions but is not fully utilized in this prototype. You can enhance it as needed.
-- The `process_data` endpoint accepts JSON data and initiates a processing task, responding with a job ID and status.
