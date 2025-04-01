@@ -1,0 +1,42 @@
+Based on the provided references, here is the transformed JSON structure containing the entities:
+
+```json
+{
+    "entities": [
+        {
+            "entity_name": "todo",
+            "entity_data_example": {
+                "task": "Buy groceries"
+            }
+        },
+        {
+            "entity_name": "company",
+            "entity_data_example": {
+                "id": "123456",
+                "lei": "LEI1234567890"
+            }
+        },
+        {
+            "entity_name": "hello_world",
+            "entity_data_example": {
+                "message": "Hello, World!"
+            }
+        },
+        {
+            "entity_name": "process",
+            "entity_data_example": {
+                "inputData": "value",
+                "result": "Processed value"
+            }
+        }
+    ]
+}
+```
+
+### Explanation:
+- **todo**: Represents the todo entity, with an example showing a task attribute.
+- **company**: Represents the company entity, with an example showing an ID and LEI (Legal Entity Identifier).
+- **hello_world**: Represents the Hello World API response, with an example message.
+- **process**: Represents the external data processing entity, with an example input and result.
+
+Each entity is structured to include a name and a data example based on the functional requirements and code provided.
